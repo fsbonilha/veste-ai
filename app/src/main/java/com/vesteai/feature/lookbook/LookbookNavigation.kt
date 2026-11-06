@@ -1,34 +1,24 @@
 package com.vesteai.feature.lookbook
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
-import com.vesteai.R
 import kotlinx.serialization.Serializable
 
 @Serializable
 data object LookbookDestination
 
-fun NavGraphBuilder.lookbookGraph(navController: NavController) {
+/**
+ * Hook for re-loading a saved look into the fitting room. The fitting room is owned by
+ * another worktree, so this graph takes the navigation as a parameter instead of naming a
+ * route it does not own. [onReloadOutfit] receives the constituent garment ids in
+ * cross-ref order; the default pops back to the Lookbook tab root.
+ */
+fun NavGraphBuilder.lookbookGraph(
+    navController: NavController,
+    onReloadOutfit: (List<String>) -> Unit = {},
+) {
     composable<LookbookDestination> {
-        Box(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = stringResource(R.string.placeholder_lookbook),
-                style = MaterialTheme.typography.bodyLarge,
-            )
-        }
+        LookbookRoute(onReloadInFittingRoom = onReloadOutfit)
     }
 }
