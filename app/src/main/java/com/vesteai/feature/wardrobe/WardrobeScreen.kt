@@ -78,13 +78,17 @@ internal fun WardrobeScreen(
             is WardrobeUiState.Content -> {
                 CategoryFilterRow(selected = state.filter, onSelected = onFilterSelected)
                 if (state.garments.isEmpty()) {
-                    EmptyWardrobe(filtered = state.filter != null)
+                    EmptyWardrobe(
+                        filtered = state.filter != null,
+                        modifier = Modifier.weight(1f),
+                    )
                 } else {
                     GarmentGrid(
                         garments = state.garments,
                         imageFile = imageFile,
                         onToggleFavorite = onToggleFavorite,
                         onRequestDelete = onRequestDelete,
+                        modifier = Modifier.weight(1f),
                     )
                 }
                 state.pendingDeletion?.let { pending ->
@@ -145,9 +149,9 @@ private fun CategoryFilterRow(
 }
 
 @Composable
-private fun EmptyWardrobe(filtered: Boolean) {
+private fun EmptyWardrobe(filtered: Boolean, modifier: Modifier = Modifier) {
     Box(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = modifier.fillMaxWidth().padding(24.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -165,10 +169,11 @@ private fun GarmentGrid(
     imageFile: (String) -> File,
     onToggleFavorite: (Garment) -> Unit,
     onRequestDelete: (Garment) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 140.dp),
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
