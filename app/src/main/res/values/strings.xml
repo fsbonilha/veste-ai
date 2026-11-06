@@ -91,4 +91,47 @@
     <string name="placeholder_fitting_room">The fitting room is not available yet.</string>
     <string name="placeholder_lookbook">Your lookbook is empty.</string>
     <string name="placeholder_settings">Settings are not available yet.</string>
+
+    <string name="fitting_room_baseline_description">Your baseline photo</string>
+    <string name="fitting_room_no_baseline">No baseline photo yet. Add one from onboarding before you try anything on.</string>
+    <string name="fitting_room_no_garments">Your wardrobe is empty. Add garments in the Wardrobe tab to try them on.</string>
+    <string name="fitting_room_load_failed">Could not load your fitting room.</string>
+    <string name="fitting_room_open_drawer">Choose garments</string>
+    <string name="fitting_room_drawer_empty">No garments in this category yet. Add them in the Wardrobe tab.</string>
+    <string name="fitting_room_unsupported_category">This photo service cannot apply %1$s yet.</string>
+
+    <string name="action_try_on">Try On</string>
+    <string name="action_remove_selection">Remove %1$s from the selection</string>
+    <string name="action_save_to_lookbook">Save to Lookbook</string>
+    <string name="action_share">Share</string>
+    <string name="action_discard">Discard</string>
+    <string name="action_done">Done</string>
+
+    <string name="tryon_stage_queued">Queued</string>
+    <string name="tryon_stage_processing">Creating your look…</string>
+    <string name="tryon_stage_completed">Your look is ready</string>
+    <string name="tryon_elapsed">%1$s elapsed</string>
+    <string name="tryon_saved">Saved to your lookbook.</string>
+    <string name="tryon_result_description">The look generated from your baseline photo</string>
+    <string name="tryon_save_failed">Could not save this look. Nothing was added to your lookbook.</string>
+    <string name="tryon_share_unavailable">No app on this device can share the image.</string>
+
+    <string name="share_look_chooser_title">Share your look</string>
+    <string name="share_look_subject">My Veste AI look</string>
+
+    <string name="error_vton_not_configured">Try On is not set up yet. Add a photo service in Settings.</string>
+    <string name="error_vton_authentication">Your photo service rejected the saved key. Update it in Settings.</string>
+    <string name="error_vton_unsupported">This combination is not supported by the photo service.</string>
+    <string name="error_vton_no_network">No network connection. Check your connection and try again.</string>
+    <string name="error_vton_timeout">Try On took too long and was stopped. Please try again.</string>
+    <string name="error_vton_too_many_jobs">Too many Try Ons are running at once. Wait for one to finish, then try again.</string>
+    <string name="error_vton_busy">The photo service is busy. Try again in a moment.</string>
+    <string name="error_vton_input_too_small">Your baseline photo is too small for the photo service. Retake it in Settings.</string>
+    <string name="error_vton_wrong_aspect">Your baseline photo is not in portrait orientation. Retake it in Settings.</string>
+    <string name="error_vton_body_not_detected">No body was detected in your baseline photo. Retake it in Settings.</string>
+    <string name="error_vton_invalid_image">That image could not be used. Retake your baseline photo in Settings.</string>
+    <string name="error_vton_job_failed">Try On failed. Please try again.</string>
+    <string name="error_vton_server">The photo service had a problem. Try again later.</string>
+    <string name="error_local_media">That image could not be read or saved on this device.</string>
+    <string name="error_unknown">Something went wrong. Please try again.</string>
 </resources>
