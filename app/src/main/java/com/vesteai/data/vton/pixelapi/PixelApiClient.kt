@@ -6,7 +6,9 @@ import com.vesteai.data.vton.pixelapi.dto.SubmitResponseDto
 import com.vesteai.data.vton.pixelapi.dto.pixelApiJson
 import com.vesteai.domain.vton.VtonError
 import com.vesteai.domain.vton.VtonException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import okhttp3.Call
 import okhttp3.Callback
@@ -37,8 +39,8 @@ internal class PixelApiClient(private val httpClient: OkHttpClient) {
             .authenticated(credentials)
             .post(json.toRequestBody(JSON_MEDIA_TYPE))
             .build()
-        return execute(request).use { response ->
-            decodeSuccess<SubmitResponseDto>(response).jobId
+        return withContext(Dispatchers.IO) {
+            execute(request).use { response -> decodeSuccess<SubmitResponseDto>(response).jobId }
         }
     }
 
@@ -48,7 +50,9 @@ internal class PixelApiClient(private val httpClient: OkHttpClient) {
             .authenticated(credentials)
             .get()
             .build()
-        return execute(request).use { response -> decodeSuccess<JobStatusDto>(response) }
+        return withContext(Dispatchers.IO) {
+            execute(request).use { response -> decodeSuccess<JobStatusDto>(response) }
+        }
     }
 
     private fun Request.Builder.authenticated(credentials: VtonCredentials): Request.Builder =
