@@ -79,6 +79,8 @@ class FittingRoomViewModelTest {
         override fun observeBaselineSavedAtMillis(): Flow<Long?> = MutableStateFlow(0L)
 
         override suspend fun markBaselineSaved(savedAtMillis: Long) = Unit
+
+        override suspend fun reset() = Unit
     }
 
     private class FakeLookbook : LookbookRepository {

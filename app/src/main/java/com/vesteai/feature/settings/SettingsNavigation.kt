@@ -1,34 +1,54 @@
 package com.vesteai.feature.settings
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
-import com.vesteai.R
+import com.vesteai.ui.onboarding.BaselineCaptureScreen
 import kotlinx.serialization.Serializable
 
 @Serializable
 data object SettingsDestination
 
+/**
+ * Re-take baseline. This re-uses [BaselineCaptureScreen] on its own destination rather than
+ * navigating into the onboarding graph: the onboarding route's `onSaved` pops the whole onboarding
+ * graph and lands on Wardrobe, which is wrong when the user came from Settings. Re-using the screen
+ * keeps the capture, import, and framing behaviour identical with no edits to onboarding.
+ */
+@Serializable
+data object BaselineRetakeDestination
+
 fun NavGraphBuilder.settingsGraph(navController: NavController) {
     composable<SettingsDestination> {
-        Box(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = stringResource(R.string.placeholder_settings),
-                style = MaterialTheme.typography.bodyLarge,
-            )
-        }
+        SettingsRoute(onRetakeBaseline = { navController.navigate(BaselineRetakeDestination) })
     }
+    composable<BaselineRetakeDestination> {
+        BaselineCaptureScreen(onSaved = { navController.popBackStack() })
+    }
+}
+
+@Composable
+internal fun SettingsRoute(
+    onRetakeBaseline: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
+    val state by viewModel.uiState.collectAsState()
+
+    SettingsScreen(
+        state = state,
+        onApiKeyChanged = viewModel::onApiKeyChanged,
+        onSaveKey = viewModel::save,
+        onRemoveKey = viewModel::removeKey,
+        onBaseUrlChanged = viewModel::onBaseUrlChanged,
+        onRetakeBaseline = onRetakeBaseline,
+        onRequestClearData = viewModel::requestClearData,
+        onConfirmClearData = viewModel::confirmClearData,
+        onCancelClearData = viewModel::cancelClearData,
+        onDismissClearDataResult = viewModel::dismissClearDataResult,
+        onDismissKeyMessage = viewModel::dismissKeyMessage,
+    )
 }

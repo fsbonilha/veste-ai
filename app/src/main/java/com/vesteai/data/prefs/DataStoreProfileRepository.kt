@@ -34,6 +34,10 @@ class DataStoreProfileRepository @Inject constructor(
         }
     }
 
+    override suspend fun reset() {
+        dataStore.edit { it.clear() }
+    }
+
     private companion object {
         val ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
         val BASELINE_PRESENT = booleanPreferencesKey("baseline_present")

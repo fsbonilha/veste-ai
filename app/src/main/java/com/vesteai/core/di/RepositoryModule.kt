@@ -1,6 +1,8 @@
 package com.vesteai.core.di
 
+import com.vesteai.core.reset.AppDataReset
 import com.vesteai.data.prefs.DataStoreProfileRepository
+import com.vesteai.data.repository.RoomAppDataReset
 import com.vesteai.data.repository.RoomLookbookRepository
 import com.vesteai.data.repository.RoomWardrobeRepository
 import com.vesteai.domain.repository.LookbookRepository
@@ -22,4 +24,7 @@ abstract class RepositoryModule {
 
     @Binds
     abstract fun bindProfileRepository(impl: DataStoreProfileRepository): ProfileRepository
+
+    @Binds
+    abstract fun bindAppDataReset(impl: RoomAppDataReset): AppDataReset
 }
