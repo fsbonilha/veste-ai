@@ -80,5 +80,48 @@
     <string name="tab_settings">Settings</string>
     <string name="placeholder_fitting_room">The fitting room is not available yet.</string>
     <string name="placeholder_lookbook">Your lookbook is empty.</string>
-    <string name="placeholder_settings">Settings are not available yet.</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_engine_label">Engine</string>
+    <string name="settings_engine_mock_hint">No key saved, so no remote try-on can run and no photos leave this device.</string>
+    <string name="settings_engine_remote_hint">A key is saved. When you run a remote try-on, your photos leave this device and go to your provider.</string>
+
+    <string name="settings_baseline_title">Baseline photo</string>
+    <string name="settings_baseline_body">Replace the full-body photo every try-on is drawn on.</string>
+    <string name="settings_baseline_retake">Re-take baseline</string>
+
+    <string name="settings_key_title">API key</string>
+    <string name="settings_key_body">Use your own key. Try-on requests are billed to your account, not ours.</string>
+    <string name="settings_key_stored">Saved key: %1$s</string>
+    <string name="settings_key_absent">No key saved yet.</string>
+    <string name="settings_key_field_label">API key</string>
+    <string name="settings_key_save">Save key</string>
+    <string name="settings_key_remove">Remove key</string>
+    <string name="settings_key_saving">Saving key…</string>
+    <string name="settings_key_error_blank">Enter your API key first.</string>
+    <string name="settings_key_error_prefix">That does not look like an API key. It should start with pk_live_.</string>
+    <string name="settings_key_error_save">The key could not be saved. Please try again.</string>
+    <string name="settings_key_error_storage">The encrypted key store is unavailable, so the key was not saved.</string>
+    <string name="settings_key_error_reentry">Your saved key could not be read and has been cleared. Enter it again.</string>
+    <string name="settings_key_format_hint">Checked on this device only: no request is sent when you save.</string>
+
+    <string name="settings_base_url_title">API base URL</string>
+    <string name="settings_base_url_field_label">Base URL</string>
+    <string name="settings_base_url_hint">Saved together with the key.</string>
+
+    <string name="settings_privacy_title">Privacy</string>
+    <string name="settings_privacy_own_key">The API key is yours. Requests are billed to your own provider account.</string>
+    <string name="settings_privacy_photos_leave">When you run a remote try-on, your baseline photo and the selected garment photos leave this device and are sent to your provider.</string>
+    <string name="settings_privacy_local">Your wardrobe, lookbook, and photos are stored on this device. Nothing is uploaded until you run a remote try-on.</string>
+    <string name="settings_privacy_key_storage">The key is encrypted with a key held in the Android Keystore. It is never written to the database, to preferences, or to logs.</string>
+
+    <string name="settings_clear_data_title">Clear data</string>
+    <string name="settings_clear_data_body">Deletes your wardrobe, lookbook, baseline photo, and API key from this device. This cannot be undone.</string>
+    <string name="settings_clear_data_action">Clear all data</string>
+    <string name="settings_clear_data_confirm_title">Clear all data?</string>
+    <string name="settings_clear_data_confirm_body">Your wardrobe, lookbook, baseline photo, and API key will be deleted from this device. This cannot be undone.</string>
+    <string name="settings_clear_data_confirm">Delete everything</string>
+    <string name="settings_clear_data_clearing">Clearing…</string>
+    <string name="settings_clear_data_done">All data has been cleared.</string>
+    <string name="settings_clear_data_failed">Some data could not be cleared. Please try again.</string>
 </resources>
