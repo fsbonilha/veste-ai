@@ -43,7 +43,7 @@ fun WelcomeCarouselScreen(onFinished: () -> Unit) {
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        Column(verticalArrangement = Arrangement.Center, modifier = Modifier.fillMaxSize()) {
+        Column(verticalArrangement = Arrangement.Center, modifier = Modifier.weight(1f)) {
             Text(
                 text = stringResource(current.titleRes),
                 style = MaterialTheme.typography.headlineMedium,
