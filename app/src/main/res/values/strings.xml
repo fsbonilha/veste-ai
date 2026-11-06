@@ -1,3 +1,41 @@
 <resources>
     <string name="app_name">Veste AI</string>
+
+    <string name="onboarding_welcome_title_1">See outfits on you before you wear them</string>
+    <string name="onboarding_welcome_body_1">Build a digital closet from the clothes you already own.</string>
+    <string name="onboarding_welcome_title_2">Try combinations in seconds</string>
+    <string name="onboarding_welcome_body_2">Pick a top and bottom, or a full-body piece, and see how it looks on your baseline photo.</string>
+    <string name="onboarding_welcome_title_3">Your photos stay on this device</string>
+    <string name="onboarding_welcome_body_3">Your baseline photo and garment images are stored in the app only. Nothing is uploaded by this step.</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_get_started">Get started</string>
+
+    <string name="camera_permission_title">Camera access</string>
+    <string name="camera_permission_rationale">Veste AI uses the camera to take a full-body photo of you as your baseline. The photo never leaves your device.</string>
+    <string name="camera_permission_allow">Allow camera</string>
+    <string name="camera_permission_denied_title">Camera access was not allowed</string>
+    <string name="camera_permission_denied_body">You can try again, or choose a photo from your gallery instead.</string>
+    <string name="camera_permission_retry">Try again</string>
+    <string name="camera_permission_permanent_title">Camera access is turned off</string>
+    <string name="camera_permission_permanent_body">Android will not show the prompt again. Turn on Camera in app settings to continue.</string>
+    <string name="camera_permission_open_settings">Open app settings</string>
+    <string name="camera_permission_pick_instead">Choose a photo instead</string>
+
+    <string name="baseline_title">Your baseline photo</string>
+    <string name="baseline_instructions">Stand about two metres from the camera in a neutral pose, with your whole body from head to toe inside the outline.</string>
+    <string name="baseline_camera_unavailable">No usable camera was found on this device.</string>
+    <string name="baseline_capture">Take photo</string>
+    <string name="baseline_pick">Choose from gallery</string>
+    <string name="baseline_saving">Saving your baseline…</string>
+    <string name="baseline_error_capture_failed">The photo could not be taken. Please try again.</string>
+    <string name="baseline_error_too_small">That photo is too small. Choose a larger image, or take a new one.</string>
+    <string name="baseline_error_unreadable">That image could not be read. Choose a different photo.</string>
+    <string name="baseline_error_storage_failed">Your photo was saved, but setup could not be finished. Please try again.</string>
+    <string name="baseline_camera_not_allowed">Camera access is off, so you can choose a photo from your gallery instead.</string>
+    <string name="baseline_retry">Try again</string>
+    <string name="baseline_frame_description">Framing guide: head-to-toe outline</string>
+
+    <string name="home_placeholder_title">Wardrobe</string>
+    <string name="home_placeholder_empty">Your wardrobe is empty. Adding garments arrives in the next milestone.</string>
 </resources>
