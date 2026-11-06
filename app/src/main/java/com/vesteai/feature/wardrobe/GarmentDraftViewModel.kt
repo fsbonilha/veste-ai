@@ -74,6 +74,7 @@ class GarmentDraftViewModel @Inject constructor(
 
     /** Called when the user backs out before saving, so the imported file does not orphan. */
     fun discard() {
+        if (state.value.saving) return
         imageStore.delete(imagePath)
         viewModelScope.launch { finished.emit(Unit) }
     }
