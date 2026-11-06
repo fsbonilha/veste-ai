@@ -33,6 +33,18 @@ class ImageStore(private val root: File) {
 
     fun delete(relative: String): Boolean = resolve(relative).delete()
 
+    /** The files directly inside [kind]'s directory; empty when that directory does not exist. */
+    fun listFiles(kind: MediaKind): List<File> =
+        File(root, kind.directory).listFiles()?.filter { it.isFile }.orEmpty()
+
+    /** Inverse of [resolve]; null when [file] lies outside this store. */
+    fun relativePathOf(file: File): String? {
+        val rootPath = root.absoluteFile.path + File.separator
+        val filePath = file.absoluteFile.path
+        if (!filePath.startsWith(rootPath)) return null
+        return filePath.substring(rootPath.length).replace(File.separatorChar, '/')
+    }
+
     /** Removes every media tree this store owns, leaving files it does not manage untouched. */
     fun clearAll() {
         MediaKind.entries.forEach { kind ->
@@ -42,5 +54,8 @@ class ImageStore(private val root: File) {
 
     companion object {
         const val BASELINE_PATH = "baseline/baseline.jpg"
+
+        /** Suffix of a file still being written; see [ImageNormalizer]'s atomic write. */
+        const val TMP_SUFFIX = ".tmp"
     }
 }

@@ -150,7 +150,7 @@ class ImageNormalizer @Inject constructor() {
         const val MIN_HEIGHT = 400
         const val MAX_LONG_EDGE = 1024
         const val JPEG_QUALITY = 85
-        const val TMP_SUFFIX = ".tmp"
+        const val TMP_SUFFIX = ImageStore.TMP_SUFFIX
         private const val RATIO_WIDTH = 3
         private const val RATIO_HEIGHT = 4
         private val AXIS_SWAPPING_ORIENTATIONS = setOf(
