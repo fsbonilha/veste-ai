@@ -36,8 +36,6 @@
     <string name="baseline_retry">Try again</string>
     <string name="baseline_frame_description">Framing guide: head-to-toe outline</string>
 
-    <string name="home_placeholder_title">Wardrobe</string>
-    <string name="home_placeholder_empty">Your wardrobe is empty. Adding garments arrives in the next milestone.</string>
     <string name="category_top">Top</string>
     <string name="category_bottom">Bottom</string>
     <string name="category_full_body">Full body</string>

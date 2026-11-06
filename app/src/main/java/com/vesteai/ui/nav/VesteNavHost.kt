@@ -12,7 +12,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.vesteai.ui.home.WardrobePlaceholderScreen
+import com.vesteai.feature.wardrobe.WardrobeDestination
+import com.vesteai.feature.wardrobe.wardrobeGraph
 import com.vesteai.ui.onboarding.onboardingGraph
 
 @Composable
@@ -29,9 +30,9 @@ fun VesteNavHost(rootViewModel: RootViewModel = hiltViewModel()) {
     val navController = rememberNavController()
     NavHost(
         navController = navController,
-        startDestination = if (onboarding) OnboardingGraph else WardrobePlaceholder,
+        startDestination = if (onboarding) OnboardingGraph else WardrobeDestination,
     ) {
         onboardingGraph(navController)
-        composable<WardrobePlaceholder> { WardrobePlaceholderScreen() }
+        wardrobeGraph(navController)
     }
 }
