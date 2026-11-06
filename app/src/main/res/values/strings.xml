@@ -38,4 +38,42 @@
 
     <string name="home_placeholder_title">Wardrobe</string>
     <string name="home_placeholder_empty">Your wardrobe is empty. Adding garments arrives in the next milestone.</string>
+    <string name="category_top">Top</string>
+    <string name="category_bottom">Bottom</string>
+    <string name="category_full_body">Full body</string>
+    <string name="category_footwear">Footwear</string>
+    <string name="category_headwear">Headwear</string>
+
+    <string name="filter_all">All</string>
+    <string name="wardrobe_empty">Your wardrobe is empty. Add your first garment to start building outfits.</string>
+    <string name="wardrobe_empty_filtered">No garments in this category yet.</string>
+    <string name="wardrobe_load_failed">Could not load your wardrobe.</string>
+    <string name="garment_delete_failed">Could not delete this garment. Nothing was removed.</string>
+    <string name="import_too_small">This photo is too small. Use an image at least 300×400 px.</string>
+    <string name="import_unreadable">This image could not be read. Try another photo.</string>
+    <string name="garment_save_failed">Could not save this garment. Try again.</string>
+
+    <string name="delete_garment_title">Delete this garment?</string>
+    <string name="delete_garment_body">This garment will be removed from your wardrobe.</string>
+    <string name="delete_garment_cascade_title">Delete garment and lookbooks?</string>
+    <plurals name="deleting_garment_cascades_lookbooks">
+        <item quantity="one">Deleting this garment will also delete %d lookbook that contains it. That look is gone for good and cannot be recovered. Do you really want to proceed?</item>
+        <item quantity="other">Deleting this garment will also delete %d lookbooks that contain it. These looks are gone for good and cannot be recovered. Do you really want to proceed?</item>
+    </plurals>
+
+    <string name="crop_hint_body">For best results, photograph the garment flat on a plain, light background with good lighting. Keep the whole item in frame and crop out the surroundings.</string>
+    <string name="tagging_prompt">What kind of garment is this?</string>
+    <string name="draft_image_description">Garment photo</string>
+
+    <string name="action_add_from_gallery">Add from gallery</string>
+    <string name="action_add_from_camera">Take photo</string>
+    <string name="action_favorite">Favorite</string>
+    <string name="action_unfavorite">Unfavorite</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_dismiss">Dismiss</string>
+    <string name="action_continue">Continue</string>
+    <string name="action_save">Save</string>
+    <string name="action_back">Back</string>
 </resources>

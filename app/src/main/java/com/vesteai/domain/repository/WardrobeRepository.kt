@@ -1,5 +1,6 @@
 package com.vesteai.domain.repository
 
+import com.vesteai.core.result.DataResult
 import com.vesteai.domain.model.Garment
 import com.vesteai.domain.model.GarmentCategory
 import kotlinx.coroutines.flow.Flow
@@ -19,4 +20,14 @@ interface WardrobeRepository {
     ): Garment
 
     suspend fun setFavorite(id: String, isFavorite: Boolean)
+
+    /** Number of lookbooks containing [garmentId]. Advisory only; see [deleteGarment]. */
+    suspend fun countLookbooksContaining(garmentId: String): Int
+
+    /**
+     * Deletes the garment and every lookbook containing it in one transaction, then removes
+     * their image files. The affected lookbooks are re-derived inside the transaction, so the
+     * count from [countLookbooksContaining] is never trusted.
+     */
+    suspend fun deleteGarment(garmentId: String): DataResult<Unit>
 }

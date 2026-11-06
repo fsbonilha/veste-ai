@@ -32,6 +32,12 @@ abstract class OutfitDao {
     abstract suspend fun countContaining(garmentId: String): Int
 
     @Query(
+        "SELECT resultImagePath FROM outfit WHERE id IN " +
+            "(SELECT outfitId FROM outfit_garment WHERE garmentId = :garmentId)",
+    )
+    abstract suspend fun resultPathsContaining(garmentId: String): List<String>
+
+    @Query(
         "DELETE FROM outfit WHERE id IN " +
             "(SELECT outfitId FROM outfit_garment WHERE garmentId = :garmentId)",
     )
