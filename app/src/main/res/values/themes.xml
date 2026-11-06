@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+      Launch theme. Compose owns everything after the first frame (see core/ui/theme), so this
+      only has to cover the window between process start and setContent: a background that
+      matches the Compose surface, and transparent system bars so enableEdgeToEdge() has nothing
+      to fight. Bar icon appearance is set from Compose, which knows the scheme actually in use.
+    -->
+    <style name="Theme.VesteAI" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+    </style>
+
+</resources>

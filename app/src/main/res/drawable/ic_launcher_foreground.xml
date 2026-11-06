@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive-icon foreground: a clothes hanger. Drawn on the 108x108 adaptive canvas with all
+  artwork inside the 72x72 safe zone (18..90), so no launcher mask clips the hook or the bar.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M54,46 L54,36 A7,7 0 1,1 61,29"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeWidth="5" />
+
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,46 L26,68 L82,68 Z" />
+
+</vector>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Matches VesteDarkColorScheme.surface. -->
+    <color name="window_background">#FF1C1B1F</color>
+
+</resources>
