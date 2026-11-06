@@ -25,8 +25,8 @@ class VtonCredentialProviderTest {
 
     @Test
     fun credentialsToString_doesNotLeakApiKey() {
-        val credentials = VtonCredentials(apiKey = "pk_live_secret123", baseUrl = "https://example.test")
+        val credentials = VtonCredentials(apiKey = "pk_live_test_secret123", baseUrl = "https://example.test")
 
-        assertFalse(credentials.toString().contains("pk_live_secret123"))
+        assertFalse(credentials.toString().contains("pk_live_test_secret123"))
     }
 }
