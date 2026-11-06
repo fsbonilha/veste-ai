@@ -1,5 +1,6 @@
 package com.vesteai.data.repository
 
+import com.vesteai.core.media.ImageStore
 import com.vesteai.data.db.inMemoryDatabase
 import com.vesteai.domain.model.Garment
 import com.vesteai.domain.model.GarmentCategory
@@ -9,7 +10,9 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.time.Clock
@@ -19,10 +22,13 @@ import java.time.ZoneOffset
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class RoomWardrobeRepositoryTest {
+    @get:Rule
+    val tmp = TemporaryFolder()
+
     private val db = inMemoryDatabase()
     private val dispatcher = UnconfinedTestDispatcher()
     private val clock = Clock.fixed(Instant.ofEpochMilli(1_700_000_000_000L), ZoneOffset.UTC)
-    private val repository = RoomWardrobeRepository(db.garmentDao(), clock, dispatcher)
+    private val repository by lazy { RoomWardrobeRepository(db, ImageStore(tmp.root), clock, dispatcher) }
 
     @After
     fun tearDown() = db.close()
