@@ -166,4 +166,10 @@ private class FakeProfileRepository : ProfileRepository {
         baselinePresent.value = true
         baselineSavedAtMillis.value = savedAtMillis
     }
+
+    override suspend fun reset() {
+        onboarding.value = false
+        baselinePresent.value = false
+        baselineSavedAtMillis.value = null
+    }
 }

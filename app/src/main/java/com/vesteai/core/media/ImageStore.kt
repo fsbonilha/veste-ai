@@ -33,6 +33,13 @@ class ImageStore(private val root: File) {
 
     fun delete(relative: String): Boolean = resolve(relative).delete()
 
+    /** Removes every media tree this store owns, leaving files it does not manage untouched. */
+    fun clearAll() {
+        MediaKind.entries.forEach { kind ->
+            File(root, kind.directory).deleteRecursively()
+        }
+    }
+
     companion object {
         const val BASELINE_PATH = "baseline/baseline.jpg"
     }
