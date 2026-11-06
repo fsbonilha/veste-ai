@@ -266,12 +266,25 @@ private fun AddGarmentBar(
     onAddFromCamera: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Button(onClick = onAddFromGallery) { Text(stringResource(R.string.action_add_from_gallery)) }
-        OutlinedButton(onClick = onAddFromCamera) {
-            Text(stringResource(R.string.action_add_from_camera))
+        Button(
+            onClick = onAddFromGallery,
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
+        ) {
+            Text(stringResource(R.string.action_add_from_gallery), maxLines = 2)
+        }
+        OutlinedButton(
+            onClick = onAddFromCamera,
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
+        ) {
+            Text(stringResource(R.string.action_add_from_camera), maxLines = 2)
         }
     }
 }
