@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Matches VesteLightColorScheme.surface so the launch window does not flash. -->
+    <color name="window_background">#FFFFFBFE</color>
+
+    <!-- Adaptive-icon background layer; the same violet as the light primary. -->
+    <color name="ic_launcher_background">#FF5B4B8A</color>
+
+</resources>
