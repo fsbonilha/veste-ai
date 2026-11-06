@@ -9,3 +9,9 @@ import kotlinx.serialization.Serializable
 @Serializable data object CameraPermission
 
 @Serializable data object BaselineCapture
+
+@Serializable data object FittingRoomDestination
+
+@Serializable data object LookbookDestination
+
+@Serializable data object SettingsDestination
