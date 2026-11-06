@@ -59,6 +59,16 @@
         <item quantity="other">Deleting this garment will also delete %d lookbooks that contain it. These looks are gone for good and cannot be recovered. Do you really want to proceed?</item>
     </plurals>
 
+    <string name="lookbook_empty">No saved looks yet. Try something on and save the result to your lookbook.</string>
+    <string name="lookbook_load_failed">Could not load your lookbook.</string>
+    <string name="lookbook_delete_failed">Could not delete this look. Nothing was removed.</string>
+    <string name="lookbook_saved_on">Saved on %1$s</string>
+    <string name="lookbook_result_description">Saved look</string>
+    <string name="lookbook_thumbnail_description">Garment in this look</string>
+    <string name="delete_lookbook_title">Delete this look?</string>
+    <string name="delete_lookbook_body">This look will be removed from your lookbook and its image deleted. It is gone for good and cannot be recovered.</string>
+    <string name="action_reload_in_fitting_room">Re-load in fitting room</string>
+
     <string name="crop_hint_body">For best results, photograph the garment flat on a plain, light background with good lighting. Keep the whole item in frame and crop out the surroundings.</string>
     <string name="tagging_prompt">What kind of garment is this?</string>
     <string name="draft_image_description">Garment photo</string>
