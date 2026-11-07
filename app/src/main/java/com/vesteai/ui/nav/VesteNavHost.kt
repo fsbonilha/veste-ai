@@ -32,6 +32,7 @@ import com.vesteai.feature.lookbook.LookbookDestination
 import com.vesteai.feature.lookbook.lookbookGraph
 import com.vesteai.feature.settings.SettingsDestination
 import com.vesteai.feature.settings.settingsGraph
+import com.vesteai.feature.wardrobe.GarmentCameraCapture
 import com.vesteai.feature.wardrobe.WardrobeDestination
 import com.vesteai.feature.wardrobe.wardrobeGraph
 import com.vesteai.ui.onboarding.onboardingGraph
@@ -101,7 +102,12 @@ private fun HomeShell() {
             modifier = Modifier.padding(innerPadding),
         ) {
             fittingRoomGraph(navController)
-            wardrobeGraph(navController)
+            wardrobeGraph(
+                navController = navController,
+                cameraCapture = { onCaptured, onCancel ->
+                    GarmentCameraCapture(onCaptured = onCaptured, onCancel = onCancel)
+                },
+            )
             lookbookGraph(
                 navController = navController,
                 onReloadOutfit = { garmentIds ->

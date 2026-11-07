@@ -188,4 +188,7 @@
     <string name="action_unfavorite_look_named">Remove the look saved on %1$s from favorites</string>
     <string name="action_delete_look_named">Delete the look saved on %1$s</string>
     <string name="action_reload_look_named">Re-load the look saved on %1$s in the fitting room</string>
+    <string name="garment_camera_title">Photograph the garment</string>
+    <string name="garment_camera_preview_description">Live camera preview of the garment</string>
+    <string name="garment_camera_shutter">Take photo</string>
 </resources>
