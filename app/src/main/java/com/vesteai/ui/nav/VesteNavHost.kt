@@ -38,11 +38,11 @@ import com.vesteai.feature.wardrobe.wardrobeGraph
 import com.vesteai.ui.onboarding.onboardingGraph
 
 /** Tabs in bottom-bar order. Four entries: Material3 supports 3-5 before labels truncate. */
-internal enum class HomeTab(val route: Any, val labelRes: Int, val iconRes: Int) {
-    FittingRoom(FittingRoomDestination, R.string.tab_fitting_room, R.drawable.ic_tab_fitting_room),
-    Wardrobe(WardrobeDestination, R.string.tab_wardrobe, R.drawable.ic_tab_wardrobe),
-    Lookbook(LookbookDestination, R.string.tab_lookbook, R.drawable.ic_tab_lookbook),
-    Settings(SettingsDestination, R.string.tab_settings, R.drawable.ic_tab_settings),
+internal enum class HomeTab(val labelRes: Int, val iconRes: Int) {
+    FittingRoom(R.string.tab_fitting_room, R.drawable.ic_tab_fitting_room),
+    Wardrobe(R.string.tab_wardrobe, R.drawable.ic_tab_wardrobe),
+    Lookbook(R.string.tab_lookbook, R.drawable.ic_tab_lookbook),
+    Settings(R.string.tab_settings, R.drawable.ic_tab_settings),
 }
 
 @Composable
@@ -98,7 +98,7 @@ private fun HomeShell() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = HomeTab.Wardrobe.route,
+            startDestination = WardrobeDestination,
             modifier = Modifier.padding(innerPadding),
         ) {
             fittingRoomGraph(navController)
@@ -138,9 +138,22 @@ private fun NavController.reloadInFittingRoom(garmentIds: List<String>) {
     }
 }
 
-/** Switches tabs with each tab keeping its own back stack. */
+/**
+ * Switches tabs with each tab keeping its own back stack. Navigation resolves a route's
+ * serializer from the reified type, so each destination is named concretely; passing the route as
+ * `Any` fails at runtime with "Serializer for class 'Companion' is not found".
+ */
 private fun NavController.switchTab(tab: HomeTab) {
-    navigate(tab.route) {
+    when (tab) {
+        HomeTab.FittingRoom -> switchTabTo(FittingRoomDestination())
+        HomeTab.Wardrobe -> switchTabTo(WardrobeDestination)
+        HomeTab.Lookbook -> switchTabTo(LookbookDestination)
+        HomeTab.Settings -> switchTabTo(SettingsDestination)
+    }
+}
+
+private inline fun <reified T : Any> NavController.switchTabTo(route: T) {
+    navigate(route) {
         popUpTo(graph.findStartDestination().id) { saveState = true }
         launchSingleTop = true
         restoreState = true
