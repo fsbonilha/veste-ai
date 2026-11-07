@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -42,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.vesteai.R
+import com.vesteai.ui.common.MinimumTouchTarget
 import kotlinx.coroutines.launch
 
 @Composable
@@ -107,9 +109,14 @@ fun BaselineCaptureScreen(
                     color = Color.White,
                 )
                 else -> {
+                    val previewDescription = stringResource(R.string.baseline_preview_description)
                     AndroidView(
                         factory = { viewContext -> PreviewView(viewContext) },
-                        modifier = Modifier.fillMaxSize(),
+                        // The live preview draws nothing a screen reader can describe, so it is
+                        // announced as the camera view the framing guide belongs to.
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .semantics { contentDescription = previewDescription },
                         update = { view -> previewView = view },
                     )
                     if (!cameraReady) CircularProgressIndicator(color = Color.White)
@@ -127,7 +134,10 @@ fun BaselineCaptureScreen(
                     text = stringResource(current.error.messageRes()),
                     color = MaterialTheme.colorScheme.error,
                 )
-                OutlinedButton(onClick = viewModel::onRetry) {
+                OutlinedButton(
+                    onClick = viewModel::onRetry,
+                    modifier = Modifier.heightIn(min = MinimumTouchTarget),
+                ) {
                     Text(stringResource(R.string.baseline_retry))
                 }
             }
@@ -144,7 +154,7 @@ fun BaselineCaptureScreen(
                 }
             },
             enabled = cameraReady && state != BaselineCaptureState.Saving,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().heightIn(min = MinimumTouchTarget),
         ) {
             Text(stringResource(R.string.baseline_capture))
         }
@@ -153,7 +163,7 @@ fun BaselineCaptureScreen(
                 picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             },
             enabled = state != BaselineCaptureState.Saving,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().heightIn(min = MinimumTouchTarget),
         ) {
             Text(stringResource(R.string.baseline_pick))
         }

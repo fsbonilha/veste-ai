@@ -15,7 +15,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import java.io.IOException
 import javax.inject.Inject
 
 /** What the key section says right now. Exactly one value, so two banners can never stack. */
@@ -38,6 +40,7 @@ sealed interface ClearDataState {
 
 data class SettingsUiState(
     val loading: Boolean = true,
+    val loadFailed: Boolean = false,
     val credential: CredentialState = CredentialState.Absent,
     val apiKeyInput: String = "",
     val baseUrlInput: String = DEFAULT_BASE_URL,
@@ -72,19 +75,39 @@ class SettingsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val stored = credentials.state()
-            _uiState.value = _uiState.value.copy(
-                loading = false,
-                credential = stored,
-                baseUrlInput = stored.baseUrlOrDefault(),
-            )
-            credentials.observe().collect { state ->
-                _uiState.value = _uiState.value.copy(
-                    credential = state,
-                    baseUrlInput = state.baseUrlOrDefault(),
-                )
-            }
+            if (!loadCredential()) return@launch
+            credentials.observe()
+                .catch { _uiState.value = _uiState.value.copy(loadFailed = true) }
+                .collect { state ->
+                    _uiState.value = _uiState.value.copy(
+                        credential = state,
+                        baseUrlInput = state.baseUrlOrDefault(),
+                    )
+                }
         }
+    }
+
+    /** Re-reads the stored entry after a load failure; the form is only shown once it succeeds. */
+    fun retry() {
+        _uiState.value = _uiState.value.copy(loading = true, loadFailed = false)
+        viewModelScope.launch { loadCredential() }
+    }
+
+    /** False when the stored entry could not be read at all, so the screen has nothing to show. */
+    private suspend fun loadCredential(): Boolean {
+        val stored = try {
+            credentials.state()
+        } catch (e: IOException) {
+            _uiState.value = _uiState.value.copy(loading = false, loadFailed = true)
+            return false
+        }
+        _uiState.value = _uiState.value.copy(
+            loading = false,
+            loadFailed = false,
+            credential = stored,
+            baseUrlInput = stored.baseUrlOrDefault(),
+        )
+        return true
     }
 
     fun onApiKeyChanged(value: String) {

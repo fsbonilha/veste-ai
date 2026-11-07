@@ -1,18 +1,17 @@
 package com.vesteai.feature.settings
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -24,6 +23,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -32,6 +33,9 @@ import androidx.compose.ui.unit.dp
 import com.vesteai.R
 import com.vesteai.core.credentials.CredentialFormatError
 import com.vesteai.core.credentials.CredentialState
+import com.vesteai.ui.common.ErrorState
+import com.vesteai.ui.common.LoadingState
+import com.vesteai.ui.common.MinimumTouchTarget
 
 /**
  * Settings (plan §7): re-take baseline, BYOK key entry with a masked read-back, engine display,
@@ -50,11 +54,17 @@ internal fun SettingsScreen(
     onCancelClearData: () -> Unit,
     onDismissClearDataResult: () -> Unit,
     onDismissKeyMessage: () -> Unit,
+    onRetry: () -> Unit = {},
 ) {
     if (state.loading) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
+        LoadingState()
+        return
+    }
+    if (state.loadFailed) {
+        ErrorState(
+            message = stringResource(R.string.settings_load_failed),
+            onRetry = onRetry,
+        )
         return
     }
 
@@ -98,10 +108,14 @@ internal fun SettingsScreen(
                 TextButton(
                     onClick = onConfirmClearData,
                     enabled = state.clearData != ClearDataState.Clearing,
+                    modifier = Modifier.heightIn(min = MinimumTouchTarget),
                 ) { Text(stringResource(R.string.settings_clear_data_confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = onCancelClearData) {
+                TextButton(
+                    onClick = onCancelClearData,
+                    modifier = Modifier.heightIn(min = MinimumTouchTarget),
+                ) {
                     Text(stringResource(R.string.action_cancel))
                 }
             },
@@ -135,7 +149,10 @@ private fun BaselineSection(onRetakeBaseline: () -> Unit) {
             text = stringResource(R.string.settings_baseline_body),
             style = MaterialTheme.typography.bodyMedium,
         )
-        OutlinedButton(onClick = onRetakeBaseline) {
+        OutlinedButton(
+            onClick = onRetakeBaseline,
+            modifier = Modifier.heightIn(min = MinimumTouchTarget),
+        ) {
             Text(stringResource(R.string.settings_baseline_retake))
         }
     }
@@ -192,7 +209,10 @@ private fun KeySection(
 
         state.keyMessage?.let { message ->
             KeyMessageText(message)
-            TextButton(onClick = onDismissKeyMessage) {
+            TextButton(
+                onClick = onDismissKeyMessage,
+                modifier = Modifier.heightIn(min = MinimumTouchTarget),
+            ) {
                 Text(stringResource(R.string.action_dismiss))
             }
         }
@@ -207,9 +227,13 @@ private fun KeySection(
             Button(
                 onClick = onSaveKey,
                 enabled = state.canSave,
+                modifier = Modifier.heightIn(min = MinimumTouchTarget),
             ) { Text(stringResource(R.string.settings_key_save)) }
             if (state.maskedKey != null || state.needsReentry) {
-                OutlinedButton(onClick = onRemoveKey) {
+                OutlinedButton(
+                    onClick = onRemoveKey,
+                    modifier = Modifier.heightIn(min = MinimumTouchTarget),
+                ) {
                     Text(stringResource(R.string.settings_key_remove))
                 }
             }
@@ -233,6 +257,7 @@ private fun KeyMessageText(message: KeyMessage) {
         text = text,
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.error,
+        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
     )
 }
 
@@ -294,6 +319,7 @@ private fun ClearDataSection(
             ClearDataState.Clearing -> Text(
                 text = stringResource(R.string.settings_clear_data_clearing),
                 style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
             ClearDataState.Cleared -> Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -302,8 +328,14 @@ private fun ClearDataSection(
                 Text(
                     text = stringResource(R.string.settings_clear_data_done),
                     style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { liveRegion = LiveRegionMode.Polite },
                 )
-                TextButton(onClick = onDismissResult) {
+                TextButton(
+                    onClick = onDismissResult,
+                    modifier = Modifier.heightIn(min = MinimumTouchTarget),
+                ) {
                     Text(stringResource(R.string.action_dismiss))
                 }
             }
@@ -315,8 +347,14 @@ private fun ClearDataSection(
                     text = stringResource(R.string.settings_clear_data_failed),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { liveRegion = LiveRegionMode.Polite },
                 )
-                TextButton(onClick = onDismissResult) {
+                TextButton(
+                    onClick = onDismissResult,
+                    modifier = Modifier.heightIn(min = MinimumTouchTarget),
+                ) {
                     Text(stringResource(R.string.action_dismiss))
                 }
             }
@@ -325,6 +363,7 @@ private fun ClearDataSection(
         OutlinedButton(
             onClick = onRequestClearData,
             enabled = state.clearData !is ClearDataState.Clearing,
+            modifier = Modifier.heightIn(min = MinimumTouchTarget),
         ) { Text(stringResource(R.string.settings_clear_data_action)) }
     }
 }
