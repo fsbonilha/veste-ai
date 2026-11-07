@@ -496,6 +496,64 @@ class FittingRoomViewModelTest {
         assertEquals(FIXTURE_BYTES.toList(), request.baselineImage.toList())
     }
 
+
+    @Test
+    fun preselectSelectsTheMatchingGarments() = runTest(dispatcher) {
+        wardrobe.garments.value = listOf(top, bottom)
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.preselect(listOf("t1", "b1"))
+        advanceUntilIdle()
+
+        val selected = vm.uiState.value.selection.selected.values.map { it.id }.toSet()
+        assertEquals(setOf("t1", "b1"), selected)
+    }
+
+    @Test
+    fun preselectIgnoresIdsThatNoLongerExist() = runTest(dispatcher) {
+        wardrobe.garments.value = listOf(top)
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.preselect(listOf("t1", "deleted-garment"))
+        advanceUntilIdle()
+
+        val selected = vm.uiState.value.selection.selected.values.map { it.id }.toSet()
+        assertEquals(setOf("t1"), selected)
+    }
+
+    @Test
+    fun preselectOfAFullBodyLookClearsTopAndBottom() = runTest(dispatcher) {
+        val dress = garment("f1", GarmentCategory.FULL_BODY)
+        wardrobe.garments.value = listOf(top, bottom, dress)
+        val vm = viewModel()
+        advanceUntilIdle()
+        vm.toggle(top)
+        vm.toggle(bottom)
+
+        vm.preselect(listOf("f1"))
+        advanceUntilIdle()
+
+        val selected = vm.uiState.value.selection.selected.values.map { it.id }.toSet()
+        assertEquals(setOf("f1"), selected)
+    }
+
+    @Test
+    fun preselectWithNoIdsLeavesTheSelectionAlone() = runTest(dispatcher) {
+        wardrobe.garments.value = listOf(top)
+        val vm = viewModel()
+        advanceUntilIdle()
+        vm.toggle(top)
+        advanceUntilIdle()
+
+        vm.preselect(emptyList())
+        advanceUntilIdle()
+
+        val selected = vm.uiState.value.selection.selected.values.map { it.id }.toSet()
+        assertEquals(setOf("t1"), selected)
+    }
+
     private companion object {
         val FIXTURE_BYTES = byteArrayOf(9, 9, 9)
     }

@@ -7,10 +7,9 @@ import androidx.navigation.compose.navigation
 import com.vesteai.ui.nav.BaselineCapture
 import com.vesteai.ui.nav.CameraPermission
 import com.vesteai.ui.nav.OnboardingGraph
-import com.vesteai.feature.wardrobe.WardrobeDestination
 import com.vesteai.ui.nav.Welcome
 
-fun NavGraphBuilder.onboardingGraph(navController: NavController) {
+fun NavGraphBuilder.onboardingGraph(navController: NavController, onComplete: () -> Unit) {
     navigation<OnboardingGraph>(startDestination = Welcome) {
         composable<Welcome> {
             WelcomeCarouselScreen(
@@ -25,11 +24,7 @@ fun NavGraphBuilder.onboardingGraph(navController: NavController) {
         }
         composable<BaselineCapture> {
             BaselineCaptureScreen(
-                onSaved = {
-                    navController.navigate(WardrobeDestination) {
-                        popUpTo<OnboardingGraph> { inclusive = true }
-                    }
-                },
+                onSaved = onComplete,
             )
         }
     }

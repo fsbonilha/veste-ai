@@ -56,17 +56,17 @@ fun VesteNavHost(rootViewModel: RootViewModel = hiltViewModel()) {
     }
 
     if (onboarding) {
-        LaunchFlow()
+        LaunchFlow(onComplete = rootViewModel::onOnboardingFinished)
     } else {
         HomeShell()
     }
 }
 
 @Composable
-private fun LaunchFlow() {
+private fun LaunchFlow(onComplete: () -> Unit) {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = OnboardingGraph) {
-        onboardingGraph(navController)
+        onboardingGraph(navController, onComplete)
     }
 }
 
@@ -102,7 +102,12 @@ private fun HomeShell() {
         ) {
             fittingRoomGraph(navController)
             wardrobeGraph(navController)
-            lookbookGraph(navController)
+            lookbookGraph(
+                navController = navController,
+                onReloadOutfit = { garmentIds ->
+                    navController.reloadInFittingRoom(garmentIds)
+                },
+            )
             settingsGraph(navController)
         }
     }
@@ -113,6 +118,18 @@ private fun NavDestination?.isOn(tab: HomeTab): Boolean = when (tab) {
     HomeTab.Wardrobe -> this?.hasRoute<WardrobeDestination>() == true
     HomeTab.Lookbook -> this?.hasRoute<LookbookDestination>() == true
     HomeTab.Settings -> this?.hasRoute<SettingsDestination>() == true
+}
+
+/**
+ * Re-loads a saved look: switches to the fitting room tab with the constituent garments
+ * preselected. Uses the same tab-switch options so the fitting room keeps its back stack.
+ */
+private fun NavController.reloadInFittingRoom(garmentIds: List<String>) {
+    navigate(FittingRoomDestination(preselectGarmentIds = garmentIds)) {
+        popUpTo(graph.findStartDestination().id) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
 }
 
 /** Switches tabs with each tab keeping its own back stack. */

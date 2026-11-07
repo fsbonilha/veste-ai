@@ -25,4 +25,12 @@ class RootViewModel @Inject constructor(
             _startsInOnboarding.value = !profileRepository.observeOnboardingComplete().first()
         }
     }
+
+    /**
+     * Onboarding finished: the host swaps the launch graph for the tab shell. The flag is already
+     * persisted by the baseline save, so this only mirrors it into state for this session.
+     */
+    fun onOnboardingFinished() {
+        _startsInOnboarding.value = false
+    }
 }

@@ -151,6 +151,21 @@ class FittingRoomViewModel @Inject constructor(
         _uiState.update { it.copy(selection = it.selection.toggle(garment)) }
     }
 
+    /**
+     * Selects every wardrobe garment in [garmentIds], in one step, on the canvas. Used by the
+     * lookbook's re-load action. Ids that no longer exist are ignored rather than failing the
+     * whole re-load, and each toggle goes through [FittingRoomSelection.toggle] so the plan
+     * section 6.3 rules (FULL_BODY vs TOP+BOTTOM) still decide the outcome.
+     */
+    fun preselect(garmentIds: Collection<String>) {
+        if (garmentIds.isEmpty()) return
+        val wanted = garmentIds.toSet()
+        _uiState.update { state ->
+            val known = state.garmentsByCategory.values.flatten().filter { it.id in wanted }
+            state.copy(selection = known.fold(state.selection) { acc, garment -> acc.toggle(garment) })
+        }
+    }
+
     fun tryOn() {
         val snapshot = _uiState.value
         if (!snapshot.canTryOn || renderJob?.isActive == true) return

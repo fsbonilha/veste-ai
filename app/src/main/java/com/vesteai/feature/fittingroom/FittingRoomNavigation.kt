@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
@@ -13,22 +14,31 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
+import androidx.navigation.toRoute
 import com.vesteai.R
 import kotlinx.serialization.Serializable
 import java.io.File
 
 @Serializable
-data object FittingRoomDestination
+data class FittingRoomDestination(val preselectGarmentIds: List<String> = emptyList())
 
 fun NavGraphBuilder.fittingRoomGraph(navController: NavController) {
-    composable<FittingRoomDestination> {
-        FittingRoomRoute()
+    composable<FittingRoomDestination> { entry ->
+        val route = entry.toRoute<FittingRoomDestination>()
+        FittingRoomRoute(preselectGarmentIds = route.preselectGarmentIds)
     }
 }
 
 @Composable
-fun FittingRoomRoute(viewModel: FittingRoomViewModel = hiltViewModel()) {
+fun FittingRoomRoute(
+    preselectGarmentIds: List<String> = emptyList(),
+    viewModel: FittingRoomViewModel = hiltViewModel(),
+) {
     val state by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(preselectGarmentIds, state.loading) {
+        if (!state.loading) viewModel.preselect(preselectGarmentIds)
+    }
     val context = LocalContext.current
     val share = remember(context) {
         LookSharing(context, onUnavailable = viewModel::onShareUnavailable)
