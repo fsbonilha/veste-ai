@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -18,7 +19,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Snackbar
@@ -29,10 +29,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.vesteai.R
 import com.vesteai.domain.model.Garment
+import com.vesteai.feature.wardrobe.labelRes
+import com.vesteai.ui.common.EmptyState
+import com.vesteai.ui.common.ErrorState
+import com.vesteai.ui.common.LoadingState
+import com.vesteai.ui.common.MinimumTouchTarget
 import java.io.File
 
 @Composable
@@ -49,37 +56,16 @@ internal fun LookbookScreen(
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         when (state) {
-            LookbookUiState.Loading -> Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) { CircularProgressIndicator() }
+            LookbookUiState.Loading -> LoadingState()
 
-            LookbookUiState.Error -> Box(
-                modifier = Modifier.fillMaxSize().padding(24.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = stringResource(R.string.lookbook_load_failed),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    OutlinedButton(onClick = onRetry) {
-                        Text(stringResource(R.string.action_retry))
-                    }
-                }
-            }
+            LookbookUiState.Error -> ErrorState(
+                message = stringResource(R.string.lookbook_load_failed),
+                onRetry = onRetry,
+            )
 
             is LookbookUiState.Content -> {
                 if (state.looks.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize().padding(24.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.lookbook_empty),
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                    }
+                    EmptyState(message = stringResource(R.string.lookbook_empty))
                 } else {
                     LookGrid(
                         looks = state.looks,
@@ -97,7 +83,10 @@ internal fun LookbookScreen(
                     Snackbar(
                         modifier = Modifier.padding(16.dp),
                         action = {
-                            TextButton(onClick = onDismissDeleteError) {
+                            TextButton(
+                                onClick = onDismissDeleteError,
+                                modifier = Modifier.heightIn(min = MinimumTouchTarget),
+                            ) {
                                 Text(stringResource(R.string.action_dismiss))
                             }
                         },
@@ -144,11 +133,17 @@ private fun LookTile(
     onReload: () -> Unit,
     onRequestDelete: () -> Unit,
 ) {
+    val savedOn = look.createdLabel
+    val favoriteLabel = stringResource(R.string.action_favorite_look_named, savedOn)
+    val unfavoriteLabel = stringResource(R.string.action_unfavorite_look_named, savedOn)
+    val deleteLabel = stringResource(R.string.action_delete_look_named, savedOn)
+    val reloadLabel = stringResource(R.string.action_reload_look_named, savedOn)
     Card {
         Column {
             AsyncImage(
                 model = imageFile(look.outfit.resultImagePath),
-                contentDescription = stringResource(R.string.lookbook_result_description),
+                // One generic string for every card would be unusable; the date distinguishes them.
+                contentDescription = stringResource(R.string.lookbook_saved_on, savedOn),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -159,12 +154,23 @@ private fun LookTile(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    text = stringResource(R.string.lookbook_saved_on, look.createdLabel),
+                    text = stringResource(R.string.lookbook_saved_on, savedOn),
                     style = MaterialTheme.typography.labelLarge,
                 )
                 GarmentThumbnailStrip(garments = look.outfit.garments, imageFile = imageFile)
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(onClick = onToggleFavorite) {
+                    TextButton(
+                        onClick = onToggleFavorite,
+                        modifier = Modifier
+                            .heightIn(min = MinimumTouchTarget)
+                            .semantics {
+                                contentDescription = if (look.outfit.isFavorite) {
+                                    unfavoriteLabel
+                                } else {
+                                    favoriteLabel
+                                }
+                            },
+                    ) {
                         Text(
                             stringResource(
                                 if (look.outfit.isFavorite) {
@@ -175,11 +181,22 @@ private fun LookTile(
                             ),
                         )
                     }
-                    TextButton(onClick = onRequestDelete) {
+                    TextButton(
+                        onClick = onRequestDelete,
+                        modifier = Modifier
+                            .heightIn(min = MinimumTouchTarget)
+                            .semantics { contentDescription = deleteLabel },
+                    ) {
                         Text(stringResource(R.string.action_delete))
                     }
                 }
-                OutlinedButton(onClick = onReload, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = onReload,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = MinimumTouchTarget)
+                        .semantics { contentDescription = reloadLabel },
+                ) {
                     Text(stringResource(R.string.action_reload_in_fitting_room))
                 }
             }
@@ -193,7 +210,10 @@ private fun GarmentThumbnailStrip(garments: List<Garment>, imageFile: (String) -
         items(garments, key = { it.id }) { garment ->
             AsyncImage(
                 model = imageFile(garment.imagePath),
-                contentDescription = stringResource(R.string.lookbook_thumbnail_description),
+                // Named per garment: one generic string repeated for every thumbnail would tell a
+                // screen reader nothing about what is in the look.
+                contentDescription = garment.displayName
+                    ?: stringResource(garment.category.labelRes()),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.height(48.dp).aspectRatio(3f / 4f),
             )
@@ -208,10 +228,16 @@ private fun DeleteLookDialog(onConfirm: () -> Unit, onCancel: () -> Unit) {
         title = { Text(stringResource(R.string.delete_lookbook_title)) },
         text = { Text(stringResource(R.string.delete_lookbook_body)) },
         confirmButton = {
-            Button(onClick = onConfirm) { Text(stringResource(R.string.action_delete)) }
+            Button(
+                onClick = onConfirm,
+                modifier = Modifier.heightIn(min = MinimumTouchTarget),
+            ) { Text(stringResource(R.string.action_delete)) }
         },
         dismissButton = {
-            TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) }
+            TextButton(
+                onClick = onCancel,
+                modifier = Modifier.heightIn(min = MinimumTouchTarget),
+            ) { Text(stringResource(R.string.action_cancel)) }
         },
     )
 }

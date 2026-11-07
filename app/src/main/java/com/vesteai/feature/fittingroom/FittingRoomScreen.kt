@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
@@ -20,7 +21,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
@@ -42,7 +42,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -51,6 +53,10 @@ import com.vesteai.core.error.userMessage
 import com.vesteai.domain.model.Garment
 import com.vesteai.domain.model.GarmentCategory
 import com.vesteai.feature.wardrobe.labelRes
+import com.vesteai.ui.common.ErrorState
+import com.vesteai.ui.common.LoadingState
+import com.vesteai.ui.common.MinimumTouchTarget
+import com.vesteai.ui.common.accessibleTouchTarget
 import java.io.File
 
 @Composable
@@ -73,8 +79,11 @@ internal fun FittingRoomScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         when {
-            state.loading -> LoadingBox()
-            state.loadFailed -> LoadFailureBox(onRetry = onRetry)
+            state.loading -> LoadingState()
+            state.loadFailed -> ErrorState(
+                message = stringResource(R.string.fitting_room_load_failed),
+                onRetry = onRetry,
+            )
             else -> Column(modifier = Modifier.fillMaxSize()) {
                 Canvas(
                     state = state,
@@ -127,31 +136,6 @@ internal fun FittingRoomScreen(
                 onShare = { onShareResult(result.relativePath) },
                 onDiscard = onDiscardResult,
             )
-        }
-    }
-}
-
-@Composable
-private fun LoadingBox() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator()
-    }
-}
-
-@Composable
-private fun LoadFailureBox(onRetry: () -> Unit) {
-    Box(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = stringResource(R.string.fitting_room_load_failed),
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            OutlinedButton(onClick = onRetry) {
-                Text(stringResource(R.string.action_retry))
-            }
         }
     }
 }
@@ -218,8 +202,11 @@ private fun SelectionChips(
             AssistChip(
                 onClick = { onToggleGarment(garment) },
                 label = { Text(label) },
+                // The chip is the control, so it is announced as "Remove <garment> from the
+                // selection"; the swatch beside the label is decorative and stays unlabelled.
                 modifier = Modifier
                     .alpha(CHIP_ALPHA)
+                    .heightIn(min = MinimumTouchTarget)
                     .semantics { contentDescription = removeLabel },
                 leadingIcon = {
                     AsyncImage(
@@ -265,7 +252,10 @@ private fun TryOnProgress(state: FittingRoomUiState, onCancel: () -> Unit) {
                 text = stringResource(R.string.tryon_elapsed, "${state.elapsedSeconds} s"),
                 style = MaterialTheme.typography.bodyMedium,
             )
-            TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) }
+            TextButton(
+                onClick = onCancel,
+                modifier = Modifier.accessibleTouchTarget(),
+            ) { Text(stringResource(R.string.action_cancel)) }
         }
     }
 }
@@ -281,15 +271,20 @@ private fun ActionBar(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        OutlinedButton(onClick = onOpenDrawer, modifier = Modifier.weight(1f)) {
+        // The labels wrap to two lines and the bar is not given a fixed height, so neither action
+        // is clipped away at a large font scale.
+        OutlinedButton(
+            onClick = onOpenDrawer,
+            modifier = Modifier.weight(1f).heightIn(min = MinimumTouchTarget),
+        ) {
             Text(stringResource(R.string.fitting_room_open_drawer), maxLines = 2)
         }
         Button(
             onClick = onTryOn,
             enabled = state.canTryOn,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).heightIn(min = MinimumTouchTarget),
         ) {
-            Text(stringResource(R.string.action_try_on), maxLines = 1)
+            Text(stringResource(R.string.action_try_on), maxLines = 2)
         }
     }
 }
@@ -301,7 +296,8 @@ private fun ErrorBanner(message: String, onDismiss: () -> Unit) {
             .fillMaxWidth()
             .padding(top = 8.dp)
             .background(MaterialTheme.colorScheme.errorContainer, MaterialTheme.shapes.medium)
-            .padding(12.dp),
+            .padding(12.dp)
+            .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -311,7 +307,10 @@ private fun ErrorBanner(message: String, onDismiss: () -> Unit) {
             color = MaterialTheme.colorScheme.onErrorContainer,
             modifier = Modifier.weight(1f),
         )
-        TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_dismiss)) }
+        TextButton(
+            onClick = onDismiss,
+            modifier = Modifier.accessibleTouchTarget(),
+        ) { Text(stringResource(R.string.action_dismiss)) }
     }
 }
 
@@ -412,17 +411,25 @@ private fun DrawerGarmentRow(
     ) {
         AsyncImage(
             model = imageFile,
-            contentDescription = stringResource(garment.category.labelRes()),
+            contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.size(56.dp).alpha(if (enabled) 1f else DISABLED_ALPHA),
         )
         if (selected) {
-            Button(onClick = onClick, enabled = enabled, modifier = Modifier.weight(1f)) {
-                Text(label, maxLines = 1)
+            Button(
+                onClick = onClick,
+                enabled = enabled,
+                modifier = Modifier.weight(1f).heightIn(min = MinimumTouchTarget),
+            ) {
+                Text(label, maxLines = 2)
             }
         } else {
-            OutlinedButton(onClick = onClick, enabled = enabled, modifier = Modifier.weight(1f)) {
-                Text(label, maxLines = 1)
+            OutlinedButton(
+                onClick = onClick,
+                enabled = enabled,
+                modifier = Modifier.weight(1f).heightIn(min = MinimumTouchTarget),
+            ) {
+                Text(label, maxLines = 2)
             }
         }
     }
@@ -450,19 +457,24 @@ private fun ResultSheet(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // The sheet opens on a screen the user was not looking at, so the heading announces
+            // itself; the image below it is described rather than left as an unnamed picture.
             Text(
                 text = stringResource(R.string.tryon_stage_completed),
                 style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
             AsyncImage(
                 model = imageFile(result.relativePath),
                 contentDescription = stringResource(R.string.tryon_result_description),
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxWidth().height(RESULT_IMAGE_MAX_HEIGHT),
+                modifier = Modifier.fillMaxWidth().heightIn(max = RESULT_IMAGE_MAX_HEIGHT),
             )
             if (result.saveFailed) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -472,7 +484,10 @@ private fun ResultSheet(
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = onDismissSaveFailure) {
+                    TextButton(
+                        onClick = onDismissSaveFailure,
+                        modifier = Modifier.accessibleTouchTarget(),
+                    ) {
                         Text(stringResource(R.string.action_dismiss))
                     }
                 }
@@ -481,24 +496,25 @@ private fun ResultSheet(
                 Text(
                     text = stringResource(R.string.tryon_saved),
                     style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                 )
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = onSaveToLookbook,
                     enabled = !result.saving && !result.saved,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = MinimumTouchTarget),
                     contentPadding = PaddingValues(12.dp),
                 ) { Text(stringResource(R.string.action_save_to_lookbook)) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
                         onClick = onShare,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).heightIn(min = MinimumTouchTarget),
                         contentPadding = PaddingValues(12.dp),
                     ) { Text(stringResource(R.string.action_share)) }
                     OutlinedButton(
                         onClick = onDiscard,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).heightIn(min = MinimumTouchTarget),
                         contentPadding = PaddingValues(12.dp),
                     ) {
                         // Once saved the file belongs to the lookbook, so the action only closes.
