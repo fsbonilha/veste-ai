@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.background
@@ -22,8 +23,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.vesteai.R
+import com.vesteai.ui.common.MinimumTouchTarget
 
 private data class WelcomePage(val titleRes: Int, val bodyRes: Int)
 
@@ -38,12 +44,24 @@ fun WelcomeCarouselScreen(onFinished: () -> Unit) {
     var page by remember { mutableIntStateOf(0) }
     val current = welcomePages[page]
     val isLast = page == welcomePages.lastIndex
+    val pagePosition = stringResource(
+        R.string.onboarding_page_indicator,
+        page + 1,
+        welcomePages.size,
+    )
 
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Column(verticalArrangement = Arrangement.Center, modifier = Modifier.weight(1f)) {
+            // A new page replaces the old one without any focus change, so the position is the
+            // only thing that can tell a screen reader the carousel moved.
+            Text(
+                text = pagePosition,
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            )
             Text(
                 text = stringResource(current.titleRes),
                 style = MaterialTheme.typography.headlineMedium,
@@ -58,6 +76,7 @@ fun WelcomeCarouselScreen(onFinished: () -> Unit) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
         ) {
+            // The dots are decoration; the position text above already says where the user is.
             welcomePages.indices.forEach { index ->
                 val color = if (index == page) {
                     MaterialTheme.colorScheme.primary
@@ -68,7 +87,8 @@ fun WelcomeCarouselScreen(onFinished: () -> Unit) {
                     modifier = Modifier
                         .padding(4.dp)
                         .size(8.dp)
-                        .background(color, CircleShape),
+                        .background(color, CircleShape)
+                        .clearAndSetSemantics {},
                 )
             }
         }
@@ -77,8 +97,14 @@ fun WelcomeCarouselScreen(onFinished: () -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = onFinished) { Text(stringResource(R.string.onboarding_skip)) }
-            Button(onClick = { if (isLast) onFinished() else page++ }) {
+            TextButton(
+                onClick = onFinished,
+                modifier = Modifier.heightIn(min = MinimumTouchTarget),
+            ) { Text(stringResource(R.string.onboarding_skip)) }
+            Button(
+                onClick = { if (isLast) onFinished() else page++ },
+                modifier = Modifier.heightIn(min = MinimumTouchTarget),
+            ) {
                 Text(stringResource(if (isLast) R.string.onboarding_get_started else R.string.onboarding_next))
             }
         }

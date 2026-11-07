@@ -50,5 +50,6 @@ internal fun SettingsRoute(
         onCancelClearData = viewModel::cancelClearData,
         onDismissClearDataResult = viewModel::dismissClearDataResult,
         onDismissKeyMessage = viewModel::dismissKeyMessage,
+        onRetry = viewModel::retry,
     )
 }

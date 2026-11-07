@@ -168,6 +168,41 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun anUnreadableEntryThatThrowsBecomesALoadFailureRatherThanACrash() = runTest(dispatcher) {
+        credentials.stateFailure = IOException("keystore gone")
+        val viewModel = viewModel()
+
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.loading)
+        assertTrue(viewModel.uiState.value.loadFailed)
+    }
+
+    @Test
+    fun retryClearsTheLoadFailureOnceTheStoreReads() = runTest(dispatcher) {
+        credentials.stateFailure = IOException("keystore gone")
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        credentials.stateFailure = null
+        viewModel.retry()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.loadFailed)
+        assertFalse(viewModel.uiState.value.loading)
+        assertEquals(CredentialState.Absent, viewModel.uiState.value.credential)
+    }
+
+    @Test
+    fun aSuccessfulLoadLeavesNoFailureFlagSet() = runTest(dispatcher) {
+        val viewModel = viewModel()
+
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.loadFailed)
+    }
+
+    @Test
     fun anUnreadableStoreAsksForReentry() = runTest(dispatcher) {
         credentials.current = CredentialState.Unreadable
 
@@ -297,6 +332,9 @@ class SettingsViewModelTest {
 
 private class FakeCredentialSettings : CredentialSettings {
     var current: CredentialState = CredentialState.Absent
+
+    /** Set to make [state] fail, as an unreadable DataStore would. */
+    var stateFailure: IOException? = null
     var saveOutcome: SaveOutcome = SaveOutcome.Saved
     var saveCalls = 0
     var clearCalls = 0
@@ -306,7 +344,10 @@ private class FakeCredentialSettings : CredentialSettings {
 
     override fun observe(): Flow<CredentialState> = changes.map { current }
 
-    override suspend fun state(): CredentialState = current
+    override suspend fun state(): CredentialState {
+        stateFailure?.let { throw it }
+        return current
+    }
 
     override suspend fun save(apiKey: String, baseUrl: String): SaveOutcome {
         saveCalls++

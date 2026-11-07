@@ -175,4 +175,17 @@
     <string name="settings_clear_data_clearing">Clearing…</string>
     <string name="settings_clear_data_done">All data has been cleared.</string>
     <string name="settings_clear_data_failed">Some data could not be cleared. Please try again.</string>
+
+    <!-- Added for the M8 accessibility pass. Existing strings above are untouched. -->
+    <string name="state_loading">Loading</string>
+    <string name="onboarding_page_indicator">Page %1$d of %2$d</string>
+    <string name="baseline_preview_description">Camera preview. Line your body up with the framing guide.</string>
+    <string name="settings_load_failed">Could not load your settings.</string>
+    <string name="action_favorite_named">Mark %1$s as favorite</string>
+    <string name="action_unfavorite_named">Remove %1$s from favorites</string>
+    <string name="action_delete_named">Delete %1$s</string>
+    <string name="action_favorite_look_named">Mark the look saved on %1$s as favorite</string>
+    <string name="action_unfavorite_look_named">Remove the look saved on %1$s from favorites</string>
+    <string name="action_delete_look_named">Delete the look saved on %1$s</string>
+    <string name="action_reload_look_named">Re-load the look saved on %1$s in the fitting room</string>
 </resources>

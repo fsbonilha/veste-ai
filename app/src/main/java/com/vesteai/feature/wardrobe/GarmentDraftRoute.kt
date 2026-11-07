@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -21,11 +22,16 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.vesteai.R
 import com.vesteai.domain.model.GarmentCategory
+import com.vesteai.ui.common.MinimumTouchTarget
 import java.io.File
 
 @Composable
@@ -82,7 +88,10 @@ internal fun GarmentDraftScreen(
                     text = stringResource(R.string.crop_hint_body),
                     style = MaterialTheme.typography.bodyLarge,
                 )
-                Button(onClick = onContinue, modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = onContinue,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = MinimumTouchTarget),
+                ) {
                     Text(stringResource(R.string.action_continue))
                 }
             }
@@ -93,29 +102,37 @@ internal fun GarmentDraftScreen(
                 )
                 GarmentCategory.entries.forEach { category ->
                     val label = stringResource(category.labelRes())
+                    // The choice is drawn as a filled vs. outlined button, which carries no meaning
+                    // for a screen reader, so the selected state is set explicitly.
+                    val choose = { onSelectCategory(category) }
+                    val chooseModifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = MinimumTouchTarget)
+                        .semantics { selected = state.category == category }
                     if (state.category == category) {
-                        Button(onClick = { onSelectCategory(category) }, modifier = Modifier.fillMaxWidth()) {
-                            Text(label)
-                        }
+                        Button(onClick = choose, modifier = chooseModifier) { Text(label) }
                     } else {
-                        OutlinedButton(onClick = { onSelectCategory(category) }, modifier = Modifier.fillMaxWidth()) {
-                            Text(label)
-                        }
+                        OutlinedButton(onClick = choose, modifier = chooseModifier) { Text(label) }
                     }
                 }
                 if (state.saveFailed) {
                     Text(
                         text = stringResource(R.string.garment_save_failed),
                         style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     )
                 }
                 Button(
                     onClick = onSave,
                     enabled = state.category != null && !state.saving,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = MinimumTouchTarget),
                 ) { Text(stringResource(R.string.action_save)) }
             }
         }
-        TextButton(onClick = onBack) { Text(stringResource(R.string.action_back)) }
+        TextButton(
+            onClick = onBack,
+            modifier = Modifier.heightIn(min = MinimumTouchTarget),
+        ) { Text(stringResource(R.string.action_back)) }
     }
 }
