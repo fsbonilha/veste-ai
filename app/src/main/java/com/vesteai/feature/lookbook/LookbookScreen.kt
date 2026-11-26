@@ -162,7 +162,7 @@ private fun PendingJobCard(
             )
             val garmentCount = job.garmentIds.size
             Text(
-                text = stringResource(R.string.lookbook_job_garments, garmentCount.toString()),
+                text = stringResource(R.string.lookbook_job_garments, garmentCount),
                 style = MaterialTheme.typography.bodySmall,
             )
             if (isActive) {
