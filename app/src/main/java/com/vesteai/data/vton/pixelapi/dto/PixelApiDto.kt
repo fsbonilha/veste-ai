@@ -30,6 +30,7 @@ internal data class SubmitResponseDto(
 internal data class JobStatusDto(
     val status: String,
     @SerialName("result_image_b64") val resultImageB64: String? = null,
+    @SerialName("output_url") val outputUrl: String? = null,
     val guidance: String? = null,
     @SerialName("eta_seconds") val etaSeconds: Long? = null,
     @SerialName("queue_position") val queuePosition: Int? = null,

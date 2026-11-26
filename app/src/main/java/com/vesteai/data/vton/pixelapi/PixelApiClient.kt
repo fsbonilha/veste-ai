@@ -55,6 +55,15 @@ internal class PixelApiClient(private val httpClient: OkHttpClient) {
         }
     }
 
+    /** Download raw bytes from an arbitrary URL (unauthenticated). Used for [PixelApiVtonEngine]'s output_url fallback. */
+    suspend fun downloadImage(url: HttpUrl): ByteArray = withContext(Dispatchers.IO) {
+        val request = Request.Builder().url(url).build()
+        execute(request).use { response ->
+            if (!response.isSuccessful) throw IOException("Download failed: HTTP ${response.code}")
+            response.body.bytes()
+        }
+    }
+
     private fun Request.Builder.authenticated(credentials: VtonCredentials): Request.Builder =
         header("Authorization", "Bearer ${credentials.apiKey}")
             .header("User-Agent", PixelApiConfig.USER_AGENT)

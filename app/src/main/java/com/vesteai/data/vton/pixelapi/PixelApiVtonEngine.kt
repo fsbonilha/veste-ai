@@ -15,10 +15,12 @@ import com.vesteai.domain.vton.VtonProgress
 import com.vesteai.domain.vton.VtonRequest
 import com.vesteai.domain.vton.VtonResult
 import com.vesteai.domain.vton.isRetryable
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -80,7 +82,7 @@ internal class PixelApiVtonEngine(
             val job = client.fetchJob(baseUrl, credentials, jobId)
             _progress.tryEmit(job.toProgress())
             val result: VtonPollResult? = when (PixelApiJobStatus.fromWire(job.status)) {
-                PixelApiJobStatus.COMPLETED -> VtonPollResult.Completed(decodeResult(job))
+                PixelApiJobStatus.COMPLETED -> resolveCompleted(job)
                 PixelApiJobStatus.FAILED -> VtonPollResult.Failed(VtonException(VtonError.JobFailed(job.guidance)))
                 PixelApiJobStatus.QUEUED, PixelApiJobStatus.PROCESSING -> null
                 null -> VtonPollResult.Failed(VtonException(VtonError.JobFailed(job.guidance)))
@@ -91,6 +93,31 @@ internal class PixelApiVtonEngine(
         } catch (e: IOException) {
             DataResult.Success<VtonPollResult?>(null)
         }
+    }
+
+    /**
+     * A completed job may carry the result as [result_image_b64] or as an [output_url].
+     * Try base64 first; fall back to downloading the URL.
+     */
+    private suspend fun resolveCompleted(job: JobStatusDto): VtonPollResult {
+        // Try base64 inline first (the fast path).
+        if (job.resultImageB64 != null) {
+            try {
+                val decoded = Base64.getDecoder().decode(job.resultImageB64)
+                return VtonPollResult.Completed(decoded)
+            } catch (e: IllegalArgumentException) { /* fall through to URL */ }
+        }
+        // Fall back to the output URL.
+        if (job.outputUrl != null) {
+            val httpUrl = job.outputUrl.toHttpUrlOrNull()
+            if (httpUrl != null) {
+                try {
+                    val bytes = withContext(Dispatchers.IO) { client.downloadImage(httpUrl) }
+                    return VtonPollResult.Completed(bytes)
+                } catch (e: Exception) { /* fall through to failure */ }
+            }
+        }
+        return VtonPollResult.Failed(VtonException(VtonError.JobFailed(job.guidance)))
     }
 
     override suspend fun render(request: VtonRequest): DataResult<VtonResult> {
@@ -154,12 +181,15 @@ internal class PixelApiVtonEngine(
     )
 
     private fun decodeResult(job: JobStatusDto): ByteArray {
-        val encoded = job.resultImageB64 ?: throw VtonException(VtonError.JobFailed(job.guidance))
-        return try {
-            Base64.getDecoder().decode(encoded)
-        } catch (e: IllegalArgumentException) {
-            throw VtonException(VtonError.JobFailed(job.guidance))
+        // Try base64 inline first.
+        if (job.resultImageB64 != null) {
+            try {
+                return Base64.getDecoder().decode(job.resultImageB64)
+            } catch (e: IllegalArgumentException) { /* fall through */ }
         }
+        // The output_url fallback is handled by the async path (poll/resolveCompleted).
+        // If we land here with neither, it's a provider error.
+        throw VtonException(VtonError.JobFailed(job.guidance))
     }
 
     private fun failure(error: VtonError) = DataResult.Failure(VtonException(error))
