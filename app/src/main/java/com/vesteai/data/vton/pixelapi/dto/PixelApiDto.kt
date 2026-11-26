@@ -31,6 +31,17 @@ internal data class JobStatusDto(
     val status: String,
     @SerialName("result_image_b64") val resultImageB64: String? = null,
     val guidance: String? = null,
+    @SerialName("eta_seconds") val etaSeconds: Long? = null,
+    @SerialName("queue_position") val queuePosition: Int? = null,
+    @SerialName("wait_info") val waitInfo: WaitInfoDto? = null,
+    @SerialName("friendly_message") val friendlyMessage: String? = null,
+)
+
+@Serializable
+internal data class WaitInfoDto(
+    @SerialName("estimated_wait_s") val estimatedWaitSeconds: Long? = null,
+    @SerialName("queue_position") val queuePosition: Int? = null,
+    @SerialName("user_message") val userMessage: String? = null,
 )
 
 @Serializable

@@ -15,6 +15,7 @@ import com.vesteai.domain.repository.LookbookRepository
 import com.vesteai.domain.repository.ProfileRepository
 import com.vesteai.domain.repository.WardrobeRepository
 import com.vesteai.domain.vton.VtonEngine
+import com.vesteai.domain.vton.VtonProgress
 import com.vesteai.domain.vton.VtonRequest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
@@ -80,6 +81,8 @@ data class FittingRoomUiState(
     val selection: FittingRoomSelection = FittingRoomSelection.Empty,
     val tryOnStage: TryOnStage = TryOnStage.Idle,
     val elapsedSeconds: Long = 0,
+    /** The provider's own queue reporting, when it has any (plan §7). */
+    val queue: VtonProgress = VtonProgress(),
     val result: TryOnResultUiState? = null,
     val shareFailed: Boolean = false,
 ) {
@@ -170,9 +173,18 @@ class FittingRoomViewModel @Inject constructor(
         val snapshot = _uiState.value
         if (!snapshot.canTryOn || renderJob?.isActive == true) return
         val startedAtMillis = clock.millis()
-        _uiState.update { it.copy(tryOnStage = TryOnStage.Queued, elapsedSeconds = 0) }
+        _uiState.update {
+            it.copy(tryOnStage = TryOnStage.Queued, elapsedSeconds = 0, queue = VtonProgress())
+        }
         renderJob = viewModelScope.launch {
             val timer = launch { tick(startedAtMillis) }
+            // The provider's queue reporting is advisory: it may emit before or during render, and
+            // an engine with no queue support simply never emits.
+            val progressWatcher = launch {
+                vtonEngine.progress.collect { progress ->
+                    _uiState.update { it.copy(queue = progress) }
+                }
+            }
             try {
                 discardStaleResult()
                 val request = buildRequest(snapshot)
@@ -191,6 +203,7 @@ class FittingRoomViewModel @Inject constructor(
                 }
             } finally {
                 timer.cancel()
+                progressWatcher.cancel()
             }
         }
     }
@@ -198,7 +211,9 @@ class FittingRoomViewModel @Inject constructor(
     fun cancelTryOn() {
         renderJob?.cancel()
         renderJob = null
-        _uiState.update { it.copy(tryOnStage = TryOnStage.Idle, elapsedSeconds = 0) }
+        _uiState.update {
+            it.copy(tryOnStage = TryOnStage.Idle, elapsedSeconds = 0, queue = VtonProgress())
+        }
     }
 
     fun dismissTryOnError() {
@@ -362,8 +377,12 @@ class FittingRoomViewModel @Inject constructor(
         const val ELAPSED_TICK_MILLIS = 1_000L
         const val MILLIS_PER_SECOND = 1_000L
 
-        /** PixelAPI advertises ~90 s for an outfit; 180 s leaves room for slow polls. */
-        const val OVERALL_TIMEOUT_MILLIS = 180_000L
+        /**
+         * A backstop for an engine that ignores cancellation. It must stay at or above the engine's
+         * own budget ([PixelApiConfig.overallTimeout], 1200 s), or this shorter guard fires first
+         * and the engine's timeout becomes unreachable.
+         */
+        const val OVERALL_TIMEOUT_MILLIS = 1_200_000L
     }
 }
 

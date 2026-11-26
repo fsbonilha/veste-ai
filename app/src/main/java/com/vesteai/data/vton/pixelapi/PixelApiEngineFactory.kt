@@ -2,6 +2,7 @@ package com.vesteai.data.vton.pixelapi
 
 import com.vesteai.data.vton.VtonCredentialProvider
 import com.vesteai.domain.vton.VtonEngine
+import okhttp3.Interceptor
 
 /**
  * The one place the provider is constructed (plan §6.6). Keeps [PixelApiClient],
@@ -9,11 +10,14 @@ import com.vesteai.domain.vton.VtonEngine
  * this factory and the binding that calls it, and nothing else.
  */
 object PixelApiEngineFactory {
-    fun create(credentialProvider: VtonCredentialProvider): VtonEngine {
+    fun create(
+        credentialProvider: VtonCredentialProvider,
+        interceptors: List<Interceptor> = emptyList(),
+    ): VtonEngine {
         val config = PixelApiConfig()
         return PixelApiVtonEngine(
             credentialProvider = credentialProvider,
-            client = PixelApiClient(config.newHttpClient()),
+            client = PixelApiClient(config.newHttpClient(interceptors)),
             config = config,
         )
     }

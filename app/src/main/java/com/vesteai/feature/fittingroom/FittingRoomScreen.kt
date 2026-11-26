@@ -234,14 +234,13 @@ private fun TryOnProgress(state: FittingRoomUiState, onCancel: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            text = stringResource(
-                when (stage) {
-                    TryOnStage.Queued -> R.string.tryon_stage_queued
-                    else -> R.string.tryon_stage_processing
-                },
-            ),
+            text = stageLabel(stage, state),
             style = MaterialTheme.typography.titleSmall,
         )
+        state.queue.userMessage?.takeIf { it.isNotBlank() }?.let { providerCopy ->
+            // The provider knows the queue depth; its copy beats anything invented here (plan §7).
+            Text(text = providerCopy, style = MaterialTheme.typography.bodyMedium)
+        }
         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -249,7 +248,7 @@ private fun TryOnProgress(state: FittingRoomUiState, onCancel: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = stringResource(R.string.tryon_elapsed, "${state.elapsedSeconds} s"),
+                text = elapsedLabel(state),
                 style = MaterialTheme.typography.bodyMedium,
             )
             TextButton(
@@ -259,6 +258,34 @@ private fun TryOnProgress(state: FittingRoomUiState, onCancel: () -> Unit) {
         }
     }
 }
+
+@Composable
+private fun stageLabel(stage: TryOnStage, state: FittingRoomUiState): String = when (stage) {
+    TryOnStage.Queued -> stringResource(R.string.tryon_stage_queued)
+    else -> {
+        val position = state.queue.queuePosition
+        if (position != null && position > 0) {
+            stringResource(R.string.tryon_stage_queue_position, position)
+        } else {
+            stringResource(R.string.tryon_stage_processing)
+        }
+    }
+}
+
+/** Elapsed time plus the provider's ETA when it gives one; the timer is always shown. */
+@Composable
+private fun elapsedLabel(state: FittingRoomUiState): String {
+    val elapsed = stringResource(R.string.tryon_elapsed, "${state.elapsedSeconds} s")
+    val etaSeconds = state.queue.estimatedWaitSeconds
+    return if (etaSeconds == null || etaSeconds <= 0) {
+        elapsed
+    } else {
+        stringResource(R.string.tryon_elapsed_with_eta, elapsed, formatMinutes(etaSeconds))
+    }
+}
+
+/** Coarse on purpose: the provider's estimate is minutes-level, so seconds would imply precision. */
+private fun formatMinutes(seconds: Long): String = "${(seconds + 59) / 60} min"
 
 @Composable
 private fun ActionBar(

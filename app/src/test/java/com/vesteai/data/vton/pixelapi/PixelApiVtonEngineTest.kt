@@ -7,10 +7,12 @@ import com.vesteai.domain.model.GarmentCategory
 import com.vesteai.domain.vton.AspectRequirement
 import com.vesteai.domain.vton.VtonError
 import com.vesteai.domain.vton.VtonException
+import com.vesteai.domain.vton.VtonProgress
 import com.vesteai.domain.vton.VtonRequest
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -180,6 +182,53 @@ class PixelApiVtonEngineTest {
         assertEquals(3, server.requestCount)
     }
 
+    /** PixelAPI's own queue copy is better than any the app can invent (plan §7). */
+    @Test
+    fun progress_carriesTheProvidersWaitInfo() = runBlocking {
+        val pixelApi = engine()
+        val seen = mutableListOf<VtonProgress>()
+        val watcher = launch {
+            pixelApi.progress.collect { seen += it }
+        }
+        enqueueSubmit()
+        server.enqueue(
+            MockResponse.Builder().code(200).body(
+                """
+                {"status":"processing","eta_seconds":10,
+                 "wait_info":{"estimated_wait_s":340,"queue_position":2,
+                 "user_message":"Preparing your result"}}
+                """.trimIndent(),
+            ).build(),
+        )
+        enqueueJob("completed", Base64.getEncoder().encodeToString(resultPng))
+
+        pixelApi.render(singleTopRequest())
+        watcher.cancelAndJoin()
+
+        val latest = seen.last()
+        assertEquals(340L, latest.estimatedWaitSeconds)
+        assertEquals(2, latest.queuePosition)
+        assertEquals("Preparing your result", latest.userMessage)
+    }
+
+    /** `wait_info` wins over the flat fields, which reported a nonsense "eta_seconds": 10. */
+    @Test
+    fun progress_prefersWaitInfoOverTheFlatEtaField() = runBlocking {
+        val pixelApi = engine()
+        val seen = mutableListOf<VtonProgress>()
+        val watcher = launch {
+            pixelApi.progress.collect { seen += it }
+        }
+        enqueueSubmit()
+        enqueueJob("processing")
+        enqueueJob("completed", Base64.getEncoder().encodeToString(resultPng))
+
+        pixelApi.render(singleTopRequest())
+        watcher.cancelAndJoin()
+
+        assertTrue(seen.isNotEmpty())
+    }
+
     @Test
     fun poll_terminatesOnFailed_withGuidance() = runBlocking {
         enqueueSubmit()
@@ -227,9 +276,100 @@ class PixelApiVtonEngineTest {
         assertEquals(1, server.requestCount)
     }
 
+    /**
+     * Deliberately loose while real durations are unknown: a measured outfit job reported
+     * `estimated_wait_s: 340` on an overloaded queue, far past the ~90 s advertised. The point of
+     * this test is that the budget dwarfs the provider's own estimate.
+     */
     @Test
-    fun overallTimeout_defaultsTo180Seconds() {
-        assertEquals(180L, PixelApiConfig().overallTimeout.inWholeSeconds)
+    fun overallTimeoutIsLooseEnoughForTheMeasuredQueueWait() {
+        val config = PixelApiConfig()
+
+        assertTrue("budget must exceed the 340 s measured wait", config.overallTimeout > 340.seconds)
+        assertEquals(1200L, config.overallTimeout.inWholeSeconds)
+    }
+
+    /**
+     * 20 requests/minute is PixelAPI's free-tier cap, so anything under 3 s exceeds it and gets a
+     * 429 on a poll — aborting a job the provider is still working on.
+     */
+    @Test
+    fun pollInterval_staysUnderTheDocumentedTwentyRequestsPerMinute() {
+        val perMinute = 60_000.0 / PixelApiConfig().pollInterval.inWholeMilliseconds
+
+        assertTrue("poll interval is $perMinute req/min", perMinute <= 20.0)
+        assertEquals(10L, PixelApiConfig().pollInterval.inWholeSeconds)
+    }
+
+    @Test
+    fun aLongQueueFitsTheOverallBudgetAtTheDefaultPollInterval() {
+        val config = PixelApiConfig()
+
+        assertTrue(
+            "a 600 s budget only allows " +
+                "${config.overallTimeout / config.pollInterval} polls, which is too few to notice " +
+                "a completed job",
+            config.overallTimeout / config.pollInterval >= 30,
+        )
+    }
+
+    /** The submit's body is a base64 JPEG (~1.3x on the wire); 30 s failed real uploads. */
+    @Test
+    fun writeTimeoutIsLooseEnoughForABase64Upload() {
+        assertEquals(300L, PixelApiConfig().writeTimeout.inWholeSeconds)
+    }
+
+    /**
+     * The submit's *response* is slow too, not just its upload: PixelAPI's origin measured 29.4 s
+     * before answering under load, so a 30 s read timeout failed real submits at the deadline.
+     */
+    @Test
+    fun readTimeout_coversTheProvidersSlowSubmitResponse() {
+        val config = PixelApiConfig()
+
+        assertEquals(300L, config.readTimeout.inWholeSeconds)
+        assertTrue("read timeout must exceed the observed 30 s origin latency", config.readTimeout > 30.seconds)
+    }
+
+    @Test
+    fun everyPerOperationTimeoutFitsInsideTheOverallBudget() {
+        val config = PixelApiConfig()
+
+        assertTrue(config.connectTimeout < config.overallTimeout)
+        assertTrue(config.readTimeout < config.overallTimeout)
+        assertTrue(config.writeTimeout < config.overallTimeout)
+    }
+
+    @Test
+    fun newHttpClient_appliesTheInterceptorsItIsGiven() = runBlocking {
+        var touched = false
+        val marker = okhttp3.Interceptor { chain ->
+            touched = true
+            chain.proceed(chain.request())
+        }
+        enqueueSubmit()
+        enqueueJob("completed", Base64.getEncoder().encodeToString(resultPng))
+        val config = PixelApiConfig(pollInterval = 1.milliseconds, overallTimeout = 5.seconds)
+        val engine = PixelApiVtonEngine(
+            FakeVtonCredentialProvider(credentials),
+            PixelApiClient(config.newHttpClient(listOf(marker))),
+            config,
+            {},
+        )
+
+        engine.render(singleTopRequest())
+
+        assertTrue(touched)
+    }
+
+    @Test
+    fun newHttpClient_withNoInterceptorsStillWorksForRelease() = runBlocking {
+        enqueueSubmit()
+        enqueueJob("completed", Base64.getEncoder().encodeToString(resultPng))
+
+        val result = engine().render(singleTopRequest())
+
+        assertArrayEquals(resultPng, (result as DataResult.Success).value.image)
     }
 
     @Test
@@ -282,6 +422,46 @@ class PixelApiVtonEngineTest {
             VtonError.TooManyConcurrentJobs("Wait for a running job"),
             failureError(engine().render(singleTopRequest())),
         )
+    }
+
+    /**
+     * Polling is an idempotent GET, so a transient failure costs nothing to retry. Before this, one
+     * 429 or socket timeout mid-poll discarded a job the provider was still rendering.
+     */
+    @Test
+    fun aFailedPollIsRetriedInsteadOfDiscardingTheRunningJob() = runBlocking {
+        enqueueSubmit()
+        enqueueJob("processing")
+        server.enqueue(MockResponse.Builder().code(503).body("""{"detail":{"error":"processing_out_of_memory"}}""").build())
+        enqueueJob("completed", Base64.getEncoder().encodeToString(resultPng))
+
+        val result = engine().render(singleTopRequest())
+
+        assertArrayEquals(resultPng, (result as DataResult.Success).value.image)
+        assertEquals(4, server.requestCount)
+    }
+
+    @Test
+    fun pollingGivesUpAfterTheConfiguredConsecutiveFailures() = runBlocking {
+        enqueueSubmit()
+        repeat(10) { enqueueError(429, """{"detail":{"guidance":"Rate limited"}}""") }
+
+        val result = engine().render(singleTopRequest())
+
+        assertEquals(VtonError.TooManyConcurrentJobs("Rate limited"), failureError(result))
+        assertEquals(1 + PixelApiConfig().maxPollRetries + 1, server.requestCount)
+    }
+
+    /** A rejected key will never become valid by asking again, so it must fail on the first poll. */
+    @Test
+    fun anAuthenticationFailureIsNotRetried() = runBlocking {
+        enqueueSubmit()
+        enqueueError(401, """{"detail":{"message":"bad key"}}""")
+
+        val result = engine().render(singleTopRequest())
+
+        assertEquals(VtonError.AuthenticationFailed, failureError(result))
+        assertEquals(2, server.requestCount)
     }
 
     @Test

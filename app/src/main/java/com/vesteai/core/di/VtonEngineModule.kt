@@ -36,9 +36,10 @@ object VtonEngineModule {
     fun provideVtonEngine(
         credentialProvider: VtonCredentialProvider,
         credentialStore: CredentialStore,
+        httpLogging: HttpLogging,
     ): VtonEngine = SelectingVtonEngine(
         mock = MockVtonEngine(dispatcher = Dispatchers.Default, compositor = CanvasMockCompositor()),
-        remote = PixelApiEngineFactory.create(credentialProvider),
+        remote = PixelApiEngineFactory.create(credentialProvider, httpLogging.interceptors()),
         credentialStates = credentialStore.observe(),
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
     )

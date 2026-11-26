@@ -14,12 +14,14 @@ import com.vesteai.domain.vton.VtonCapabilities
 import com.vesteai.domain.vton.VtonEngine
 import com.vesteai.domain.vton.VtonError
 import com.vesteai.domain.vton.VtonException
+import com.vesteai.domain.vton.VtonProgress
 import com.vesteai.domain.vton.VtonRequest
 import com.vesteai.domain.vton.VtonResult
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -117,6 +119,9 @@ class FittingRoomViewModelTest {
         override val capabilities: VtonCapabilities = CAPABILITIES,
     ) : VtonEngine {
         override val displayName: String = "fake"
+
+        val progressFlow = MutableSharedFlow<VtonProgress>(replay = 1, extraBufferCapacity = 8)
+        override val progress: Flow<VtonProgress> = progressFlow
 
         var outcome: DataResult<VtonResult> = DataResult.Success(VtonResult(RESULT_BYTES))
         var gate: CompletableDeferred<Unit>? = null
@@ -367,18 +372,63 @@ class FittingRoomViewModelTest {
     }
 
     @Test
-    fun aHungEngineTimesOutAfterThreeMinutes() = runTest(dispatcher) {
+    fun aHungEngineStillReportedAsInFlightWellPastTheOldThreeMinuteLimit() = runTest(dispatcher) {
         engine.gate = CompletableDeferred()
         val vm = selectedViewModel()
 
         vm.tryOn()
-        advanceTimeBy(179_000)
+        advanceTimeBy(300_000)
+
+        assertTrue(vm.uiState.value.tryOnStage.isInFlight)
+    }
+
+    @Test
+    fun aHungEngineTimesOutAfterTenMinutes() = runTest(dispatcher) {
+        engine.gate = CompletableDeferred()
+        val vm = selectedViewModel()
+
+        vm.tryOn()
+        advanceTimeBy(599_000)
         assertTrue(vm.uiState.value.tryOnStage.isInFlight)
 
         advanceTimeBy(2_000)
         advanceUntilIdle()
 
         assertEquals(TryOnStage.Failed(AppError.Timeout), vm.uiState.value.tryOnStage)
+    }
+
+    @Test
+    fun theProvidersQueueMessageReachesTheUiWhileTheJobRuns() = runTest(dispatcher) {
+        engine.gate = CompletableDeferred()
+        val vm = selectedViewModel()
+
+        vm.tryOn()
+        engine.progressFlow.emit(
+            VtonProgress(
+                estimatedWaitSeconds = 340,
+                queuePosition = 2,
+                userMessage = "Preparing your result",
+            ),
+        )
+        advanceUntilIdle()
+
+        val queue = vm.uiState.value.queue
+        assertEquals("Preparing your result", queue.userMessage)
+        assertEquals(340L, queue.estimatedWaitSeconds)
+        assertEquals(2, queue.queuePosition)
+    }
+
+    @Test
+    fun startingOrCancellingAJobClearsAStaleQueueMessage() = runTest(dispatcher) {
+        engine.gate = CompletableDeferred()
+        val vm = selectedViewModel()
+        vm.tryOn()
+        engine.progressFlow.emit(VtonProgress(userMessage = "Preparing your result"))
+        advanceUntilIdle()
+
+        vm.cancelTryOn()
+
+        assertTrue(vm.uiState.value.queue.isEmpty)
     }
 
     @Test

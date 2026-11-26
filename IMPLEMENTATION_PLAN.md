@@ -474,13 +474,56 @@ Details that need explicit handling:
 - **Try On progress**: PixelAPI is async — ~35 s for one garment, ~90 s advertised for
   an outfit — so this is a long operation, not a spinner. Show the job's real stage
   (`queued` → `processing` → `completed`) with an elapsed timer and a Cancel that
-  cancels the polling coroutine. Overall timeout ~180 s, comfortably past their ETA.
+  cancels the polling coroutine. Overall timeout 600 s, a ceiling for a slow queue rather
+  than an expected duration; `FittingRoomViewModel.OVERALL_TIMEOUT_MILLIS` must stay at or
+  above `PixelApiConfig.overallTimeout`, or the outer guard fires first and the engine's
+  own timeout becomes unreachable.
   Disable Try On while a job is in flight, and surface the provider's own
   `guidance` text on failure instead of inventing copy.
 - **Result sheet**: Save to Lookbook / Share (`FileProvider` + `ACTION_SEND`) /
   Discard. Discard deletes the temp result file.
 - **Loading/empty/error states** on every screen; VTON errors map to user-facing
   copy through `AppError`, never a raw exception string.
+- **Debug HTTP logging** (§6.4): `HttpLogging` is a variant-bound seam in `core/di`.
+  Debug binds `HttpLoggingInterceptor` at `HEADERS` with
+  `redactHeader("Authorization")`; release binds an empty list, and
+  `okhttp-logging` is `debugImplementation` so the class is not on the release
+  classpath — verified by inspecting both APKs' dex. `HEADERS` rather than `BODY`
+  because bodies are base64 JPEGs; the headers still give method, URL, status and
+  elapsed ms, which is what distinguishes a timeout from a 401/402. Read with
+  `adb logcat -s OkHttp`.
+  `HEADERS` alone cannot explain a non-2xx: the status says *that* it failed, and
+  only the body says *why*. A second debug-only interceptor peeks the response
+  (`peekBody`, 4 KiB, so the caller's body is untouched), prints it after the
+  status line, elides base64 runs over 200 chars and marks bodies cut off at the
+  cap. Verified against live PixelAPI: a 402 body carries
+  `{"detail":{"error":"insufficient_credits","credits_needed":32,"credits_remaining":0.0,...}}`.
+  Note `x-credits-remaining` in the headers reports the plan allowance (300) and
+  disagrees with the spendable balance in the body — trust the body.
+- **Poll interval 10 s.** Free tier allows 20 requests/minute and the submit counts as
+  one, so the original 2.5 s (24/min) could rate-limit a job the provider was still
+  processing. 10 s is 6/min; a 600 s budget still yields ~60 polls.
+- **Read timeout 120 s, not 30 s.** OkHttp applies it to the whole request, so it governs
+  the submit's slow *response* as much as its upload. PixelAPI's origin measured
+  `cfOrigin;dur=29426` before answering under load and a submit failed at 30.7 s with
+  `SocketTimeoutException`. Each per-operation timeout must stay under the overall budget;
+  both relations are pinned by tests.
+- **Timeouts are deliberately loose (1200 s overall, 300 s read/write) until real
+  durations are measured.** Set aggressive values only from observed data. Two are
+  load-bearing: the outer `FittingRoomViewModel.OVERALL_TIMEOUT_MILLIS` must stay at or
+  above `PixelApiConfig.overallTimeout`, and every per-operation timeout must stay under
+  it. Both are pinned by tests.
+- **Retries are asymmetric, and that is deliberate.** A failed *poll* is retried up to
+  `PixelApiConfig.maxPollRetries` consecutive times when `VtonError.isRetryable` says the
+  condition is transient (no network, timeout, 429, `processing_out_of_memory`,
+  5xx); a 401 or a rejected image fails immediately. A failed *submit* is **never**
+  retried: the provider may already have billed for a job it accepted, and a socket
+  timeout does not prove it was rejected — `credits_used: 64.0` appeared on a job whose
+  response the client never saw. Retrying there could charge twice.
+- **Provider queue reporting is surfaced.** `VtonEngine.progress` (default empty) emits
+  `VtonProgress` per poll; PixelAPI's `wait_info.user_message` is shown verbatim above the
+  elapsed timer because it knows the queue depth and this app does not. `wait_info` wins
+  over the flat `eta_seconds`, which reported 10 s for a job whose real wait was 340 s.
 
 ---
 
@@ -553,9 +596,10 @@ delay, never assert on wall-clock or on real network.
 
 | Risk | Impact | Mitigation |
 | :--- | :--- | :--- |
+| Upload timeout too short for a base64 body | Real submits fail and are reported as "Try On took too long", pointing at the wrong subsystem | `writeTimeout` is 120 s for the submit (the only write); `readTimeout` stays 30 s because polls are small. Both pinned by tests |
 | PixelAPI has no footwear support | PRD §3 lists FOOTWEAR as Core MVP | `capabilities` disables + annotates it; accept the gap or add a second engine (§6.6 makes that one binding) |
 | Base64 images inflate payloads ~33% and their cap is plan-dependent (10 MB free tier) | Large photos rejected or slow to upload | §5 normalizer caps at 1024 px / q85, which lands well under 1 MB; reject oversized input at import, not at submit |
-| Async job model adds real latency (~35 s single, ~90 s outfit) and needs polling | Users think the app hung; battery/network waste | Explicit staged progress with elapsed timer, Cancel wired to coroutine cancellation, ~180 s timeout, jobs disabled while one is in flight |
+| Async job model adds real latency (~35 s single, ~90 s outfit) and needs polling | Users think the app hung; battery/network waste | Explicit staged progress with elapsed timer, Cancel wired to coroutine cancellation, 600 s timeout, jobs disabled while one is in flight |
 | Their CDN blocks requests without a proper `User-Agent` | Mysterious 403s in the field | Hardcode `VesteAI/1.0 (Android)` in the OkHttp client and assert it in an interceptor test |
 | Free tier allows only 3 parallel jobs → `429` | Confusing failure during rapid retries | Serialize Try On per user, disable the button while in flight, map `429` to actionable copy |
 | Person photo must be portrait or the API 422s | Every landscape baseline photo fails | §5 normalizer enforces portrait at import, so this is unreachable from the UI |

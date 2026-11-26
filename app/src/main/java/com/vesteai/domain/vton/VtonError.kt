@@ -16,5 +16,20 @@ sealed interface VtonError {
     data class ServerError(val status: Int) : VtonError
 }
 
+/**
+ * Whether the same request is worth issuing again. Only transient conditions qualify: retrying a
+ * rejected key, an unreadable image or a bad combination just repeats the failure, and retrying a
+ * *submit* is never safe regardless of this flag because the provider may already have billed for
+ * it (see `PixelApiVtonEngine.render`).
+ */
+val VtonError.isRetryable: Boolean
+    get() = when (this) {
+        VtonError.NoNetwork, VtonError.Timeout -> true
+        is VtonError.TooManyConcurrentJobs -> true
+        is VtonError.ProcessingBusy -> retryable
+        is VtonError.ServerError -> status >= 500
+        else -> false
+    }
+
 /** Carries a [VtonError] through [com.vesteai.core.result.DataResult.Failure], which requires a Throwable. */
 class VtonException(val error: VtonError) : Exception(error.toString())
