@@ -179,6 +179,12 @@ class FittingRoomViewModel @Inject constructor(
         val snapshot = _uiState.value
         if (!snapshot.canTryOn || renderJob?.isActive == true) return
 
+        // When the engine doesn't support async submit/poll, fall back to synchronous render.
+        if (!vtonEngine.capabilities.isAsync) {
+            syncTryOn()
+            return
+        }
+
         // Build the pending job from image paths (not bytes) so it survives restarts.
         val garmentIds = snapshot.selection.selected.values.map { it.id }.toList()
         if (garmentIds.isEmpty()) return
@@ -307,6 +313,45 @@ class FittingRoomViewModel @Inject constructor(
             _uiState.update { it.copy(elapsedSeconds = elapsedMillis / MILLIS_PER_SECOND) }
             // Sleep to the next whole second so the display never drifts behind the timer.
             delay(ELAPSED_TICK_MILLIS - elapsedMillis % ELAPSED_TICK_MILLIS)
+        }
+    }
+
+    /**
+     * Synchronous fallback for engines that only support [render] (e.g. [MockVtonEngine]).
+     * This is the original blocking path restored for non-async engines.
+     */
+    private fun syncTryOn() {
+        val snapshot = _uiState.value
+        val startedAtMillis = clock.millis()
+        renderJob = viewModelScope.launch {
+            _uiState.update {
+                it.copy(tryOnStage = TryOnStage.Queued, elapsedSeconds = 0, queue = VtonProgress())
+            }
+            val timer = launch { tick(startedAtMillis) }
+            val progressWatcher = launch {
+                vtonEngine.progress.collect { progress ->
+                    _uiState.update { it.copy(queue = progress) }
+                }
+            }
+            try {
+                discardStaleResult()
+                val request = buildRequest(snapshot)
+                if (request == null) {
+                    ensureActive()
+                    fail(AppError.LocalMedia)
+                    return@launch
+                }
+                _uiState.update { it.copy(tryOnStage = TryOnStage.Processing) }
+                val outcome = withTimeoutOrNull(OVERALL_TIMEOUT_MILLIS) { vtonEngine.render(request) }
+                when (outcome) {
+                    null -> fail(AppError.Timeout)
+                    is DataResult.Failure -> fail(outcome.error.toAppError())
+                    is DataResult.Success -> persistResult(outcome.value.image, snapshot)
+                }
+            } finally {
+                timer.cancel()
+                progressWatcher.cancel()
+            }
         }
     }
 

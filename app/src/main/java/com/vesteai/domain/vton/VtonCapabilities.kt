@@ -7,6 +7,8 @@ data class VtonCapabilities(
     val supportsTopBottomOutfit: Boolean,
     val maxParallelJobs: Int,
     val requiredAspect: AspectRequirement,
+    /** True when [VtonEngine.submit] and [VtonEngine.poll] are implemented (async try-on). */
+    val isAsync: Boolean = false,
 )
 
 sealed interface AspectRequirement {

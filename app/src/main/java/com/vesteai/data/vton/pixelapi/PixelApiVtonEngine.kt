@@ -44,6 +44,7 @@ internal class PixelApiVtonEngine(
         supportsTopBottomOutfit = true,
         maxParallelJobs = MAX_PARALLEL_JOBS,
         requiredAspect = AspectRequirement.Portrait(minWidthPx = 300, minHeightPx = 400),
+        isAsync = true,
     )
 
     /** Reads credentials fresh each call so the user can change them between renders. */
