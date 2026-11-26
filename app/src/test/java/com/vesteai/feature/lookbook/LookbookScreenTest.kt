@@ -64,17 +64,15 @@ class LookbookScreenTest {
                 state = state,
                 imageFile = { File(it) },
                 onRetry = {},
+                onOpenLook = {},
+                onCloseLook = {},
+                onShareLook = {},
                 onToggleFavorite = onToggleFavorite,
                 onReload = onReload,
                 onRequestDelete = onRequestDelete,
                 onConfirmDelete = onConfirmDelete,
                 onCancelDelete = {},
                 onDismissDeleteError = {},
-                onCancelJob = {},
-                onRetryJob = {},
-                onSaveJobToLookbook = {},
-                onDiscardJob = {},
-                onReloadJob = {},
             )
         }
     }

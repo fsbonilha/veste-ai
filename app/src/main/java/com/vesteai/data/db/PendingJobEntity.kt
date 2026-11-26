@@ -24,5 +24,4 @@ data class PendingJobEntity(
     val resultImagePath: String? = null,
     val errorCode: String? = null,
     val guidance: String? = null,
-    val seen: Boolean = false,
 )

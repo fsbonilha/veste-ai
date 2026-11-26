@@ -49,7 +49,7 @@ import java.time.Clock
 import java.util.UUID
 import javax.inject.Inject
 
-/** Try On stages reported by [VtonEngine.render]; `completed` also opens the result sheet. */
+/** Try On stages reported by [VtonEngine]; `completed` also shows a transient confirmation. */
 sealed interface TryOnStage {
     data object Idle : TryOnStage
 
@@ -65,17 +65,8 @@ sealed interface TryOnStage {
 val TryOnStage.isInFlight: Boolean
     get() = this == TryOnStage.Queued || this == TryOnStage.Processing
 
-/**
- * The rendered look held in app storage while the sheet is open. Deleting the file is
- * [FittingRoomViewModel.discardResult]'s job; saving hands ownership to the lookbook.
- */
-data class TryOnResultUiState(
-    val relativePath: String,
-    val garmentIds: Set<String>,
-    val saving: Boolean = false,
-    val saved: Boolean = false,
-    val saveFailed: Boolean = false,
-)
+/** Which half of the fitting room is showing. */
+enum class FittingRoomTab { TryOn, Ongoing }
 
 data class FittingRoomUiState(
     val loading: Boolean = false,
@@ -84,12 +75,15 @@ data class FittingRoomUiState(
     val garmentsByCategory: Map<GarmentCategory, List<Garment>> = emptyMap(),
     val unsupportedCategories: Set<GarmentCategory> = emptySet(),
     val selection: FittingRoomSelection = FittingRoomSelection.Empty,
+    val tab: FittingRoomTab = FittingRoomTab.TryOn,
     val tryOnStage: TryOnStage = TryOnStage.Idle,
     val elapsedSeconds: Long = 0,
     /** The provider's own queue reporting, when it has any (plan §7). */
     val queue: VtonProgress = VtonProgress(),
-    val result: TryOnResultUiState? = null,
-    val shareFailed: Boolean = false,
+    /** In-progress and failed jobs, newest first; shown in the Ongoing tab. */
+    val jobs: List<PendingJob> = emptyList(),
+    /** A completed result was written to the Lookbook; the UI shows a brief confirmation. */
+    val savedConfirmation: Boolean = false,
 ) {
     val hasGarments: Boolean get() = garmentsByCategory.values.any { it.isNotEmpty() }
 
@@ -97,6 +91,16 @@ data class FittingRoomUiState(
 
     val canTryOn: Boolean
         get() = baselinePresent && !tryOnStage.isInFlight && selection.selected.isNotEmpty()
+
+    /**
+     * Jobs the Ongoing tab lists. Every row in the repo belongs here: it is either still running,
+     * failed, or a completed result whose lookbook write failed and can be retried.
+     */
+    val ongoingJobs: List<PendingJob>
+        get() = jobs
+
+    val activeJobCount: Int
+        get() = jobs.count { it.isActive }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -129,6 +133,12 @@ class FittingRoomViewModel @Inject constructor(
 
     private var renderJob: Job? = null
 
+    /** The job the inline progress is watching, if any; used to tell success from a cancel. */
+    private var watchedJobId: String? = null
+
+    /** A job the user cancelled; its disappearance from the repo is not a success. */
+    private var cancelledJobId: String? = null
+
     init {
         viewModelScope.launch {
             attempt
@@ -145,6 +155,29 @@ class FittingRoomViewModel @Inject constructor(
                 }
                 .collect(::applyLoad)
         }
+        viewModelScope.launch {
+            jobRepo.observeAll().collect { jobs ->
+                _uiState.update { it.copy(jobs = jobs) }
+                // Drop the inline progress once the watched job is no longer in flight, so a
+                // completed-and-saved job does not leave a stuck bar behind.
+                val watched = jobs.firstOrNull { it.id == watchedJobId }
+                if (watched == null && watchedJobId != null && watchedJobId != cancelledJobId) {
+                    // Gone from the repo without a failure means the poller saved it.
+                    _uiState.update {
+                        it.copy(tryOnStage = TryOnStage.Completed, savedConfirmation = true, elapsedSeconds = 0)
+                    }
+                    watchedJobId = null
+                } else if (watched?.status is JobStatus.Failed) {
+                    _uiState.update { it.copy(tryOnStage = TryOnStage.Failed((watched.status as JobStatus.Failed).error.toAppError())) }
+                    watchedJobId = null
+                } else if (watched?.status is JobStatus.Completed) {
+                    // Saved to the lookbook by the poller but the job row lingers only if the
+                    // lookbook write failed; the Ongoing tab offers a retry save.
+                    _uiState.update { it.copy(tryOnStage = TryOnStage.Idle, elapsedSeconds = 0) }
+                    watchedJobId = null
+                }
+            }
+        }
     }
 
     fun imageFile(relativePath: String): File = imageStore.resolve(relativePath)
@@ -153,6 +186,14 @@ class FittingRoomViewModel @Inject constructor(
 
     fun retry() {
         attempt.update { it + 1 }
+    }
+
+    fun selectTab(tab: FittingRoomTab) {
+        _uiState.update { it.copy(tab = tab) }
+    }
+
+    fun dismissSavedConfirmation() {
+        _uiState.update { it.copy(savedConfirmation = false) }
     }
 
     /** Delegates every selection rule to [FittingRoomSelection.toggle]; no branching here. */
@@ -185,7 +226,6 @@ class FittingRoomViewModel @Inject constructor(
             return
         }
 
-        // Build the pending job from image paths (not bytes) so it survives restarts.
         val garmentIds = snapshot.selection.selected.values.map { it.id }.toList()
         if (garmentIds.isEmpty()) return
 
@@ -198,17 +238,22 @@ class FittingRoomViewModel @Inject constructor(
             baselineImagePath = ImageStore.BASELINE_PATH,
             submittedAt = clock.millis(),
             status = JobStatus.Queued,
-            seen = false,
         )
 
+        watchedJobId = jobId
+        cancelledJobId = null
         _uiState.update {
-            it.copy(tryOnStage = TryOnStage.Queued, elapsedSeconds = 0, queue = VtonProgress())
+            it.copy(
+                tryOnStage = TryOnStage.Queued,
+                elapsedSeconds = 0,
+                queue = VtonProgress(),
+                savedConfirmation = false,
+            )
         }
 
         // Save the job (the poller picks it up) and show progress locally.
         renderJob = viewModelScope.launch {
             jobRepo.save(pendingJob)
-            // Keep a local progress watcher so the fitting room shows live updates.
             val timer = launch { tick(pendingJob.submittedAt) }
             val progressWatcher = launch {
                 vtonEngine.progress.collect { progress ->
@@ -216,32 +261,11 @@ class FittingRoomViewModel @Inject constructor(
                 }
             }
             try {
-                // Watch the job repo for completion of this job.
-                val completed = jobRepo.observeAll()
-                    .first { jobs -> jobs.any { it.id == jobId && it.status.isTerminal } }
-                    ?.firstOrNull { it.id == jobId }
-                // If the job completed while we were watching, show the result.
-                if (completed != null) {
-                    when (completed.status) {
-                        is JobStatus.Completed -> {
-                            val resultPath = (completed.status as JobStatus.Completed).resultImagePath
-                            _uiState.update {
-                                it.copy(
-                                    tryOnStage = TryOnStage.Completed,
-                                    result = TryOnResultUiState(
-                                        relativePath = resultPath,
-                                        garmentIds = garmentIds.toSet(),
-                                    ),
-                                )
-                            }
-                        }
-                        is JobStatus.Failed -> {
-                            val failed = completed.status as JobStatus.Failed
-                            fail(failed.error.toAppError())
-                        }
-                        else -> { /* should not happen */ }
-                    }
-                }
+                // The observeAll collector in init flips the stage when the job leaves the repo
+                // (success) or shows Failed; here we only keep the queued->processing step.
+                jobRepo.observeAll()
+                    .first { jobs -> jobs.firstOrNull { it.id == jobId }?.status is JobStatus.Processing }
+                _uiState.update { it.copy(tryOnStage = TryOnStage.Processing) }
             } finally {
                 timer.cancel()
                 progressWatcher.cancel()
@@ -250,12 +274,15 @@ class FittingRoomViewModel @Inject constructor(
     }
 
     fun cancelTryOn() {
+        val id = watchedJobId
+        cancelledJobId = id
+        watchedJobId = null
         renderJob?.cancel()
         renderJob = null
-        // The job continues running in the background; we just stop watching locally.
         _uiState.update {
             it.copy(tryOnStage = TryOnStage.Idle, elapsedSeconds = 0, queue = VtonProgress())
         }
+        if (id != null) viewModelScope.launch { jobRepo.delete(id) }
     }
 
     fun dismissTryOnError() {
@@ -264,47 +291,52 @@ class FittingRoomViewModel @Inject constructor(
         }
     }
 
-    fun dismissResult() {
-        _uiState.update { it.copy(result = null, tryOnStage = TryOnStage.Idle, elapsedSeconds = 0) }
+    /** Cancel an active job from the Ongoing list. */
+    fun cancelJob(job: PendingJob) {
+        if (job.status.isTerminal) return
+        if (job.id == watchedJobId) {
+            cancelledJobId = job.id
+            watchedJobId = null
+            _uiState.update {
+                it.copy(tryOnStage = TryOnStage.Idle, elapsedSeconds = 0, queue = VtonProgress())
+            }
+        }
+        viewModelScope.launch { jobRepo.delete(job.id) }
     }
 
-    fun saveToLookbook() {
-        val current = _uiState.value.result ?: return
-        if (current.saving || current.saved) return
-        updateResult { it.copy(saving = true, saveFailed = false) }
+    /** Retry a failed job: a fresh row for the poller, then drop the failed one. */
+    fun retryJob(job: PendingJob) {
+        if (job.status !is JobStatus.Failed) return
         viewModelScope.launch {
-            when (lookbook.save(current.relativePath, current.garmentIds)) {
-                is DataResult.Success -> updateResult { it.copy(saving = false, saved = true) }
-                is DataResult.Failure -> {
-                    withContext(ioDispatcher) { imageStore.delete(current.relativePath) }
-                    updateResult { it.copy(saving = false, saveFailed = true) }
-                }
+            jobRepo.save(
+                PendingJob(
+                    id = UUID.randomUUID().toString(),
+                    providerName = job.providerName,
+                    providerJobId = null,
+                    garmentIds = job.garmentIds,
+                    baselineImagePath = job.baselineImagePath,
+                    submittedAt = clock.millis(),
+                    status = JobStatus.Queued,
+                ),
+            )
+            jobRepo.delete(job.id)
+        }
+    }
+
+    /** Retry saving a completed job whose lookbook write failed. */
+    fun retrySaveJob(job: PendingJob) {
+        val status = job.status
+        if (status !is JobStatus.Completed) return
+        viewModelScope.launch {
+            when (lookbook.save(status.resultImagePath, job.garmentIds)) {
+                is DataResult.Success -> jobRepo.delete(job.id)
+                is DataResult.Failure -> Unit // leave it for another try
             }
         }
     }
 
-    fun dismissSaveFailure() {
-        updateResult { it.copy(saveFailed = false) }
-    }
-
-    /** Recorded when no installed app can handle the share intent. */
-    fun onShareUnavailable() {
-        _uiState.update { it.copy(shareFailed = true) }
-    }
-
-    fun dismissShareFailure() {
-        _uiState.update { it.copy(shareFailed = false) }
-    }
-
-    /** Deletes the unsaved result file, then closes the sheet. */
-    fun discardResult() {
-        _uiState.value.result?.let { discard(it) }
-        dismissResult()
-    }
-
     override fun onCleared() {
         renderJob?.cancel()
-        _uiState.value.result?.let { discard(it) }
     }
 
     private suspend fun tick(startedAtMillis: Long) {
@@ -318,15 +350,16 @@ class FittingRoomViewModel @Inject constructor(
 
     /**
      * Synchronous fallback for engines that only support [render] (e.g. [MockVtonEngine]).
-     * This is the original blocking path restored for non-async engines.
+     * Renders, then saves the result straight to the lookbook, matching the async path's
+     * auto-save behaviour.
      */
     private fun syncTryOn() {
         val snapshot = _uiState.value
         val startedAtMillis = clock.millis()
+        _uiState.update {
+            it.copy(tryOnStage = TryOnStage.Queued, elapsedSeconds = 0, queue = VtonProgress(), savedConfirmation = false)
+        }
         renderJob = viewModelScope.launch {
-            _uiState.update {
-                it.copy(tryOnStage = TryOnStage.Queued, elapsedSeconds = 0, queue = VtonProgress())
-            }
             val timer = launch { tick(startedAtMillis) }
             val progressWatcher = launch {
                 vtonEngine.progress.collect { progress ->
@@ -334,7 +367,6 @@ class FittingRoomViewModel @Inject constructor(
                 }
             }
             try {
-                discardStaleResult()
                 val request = buildRequest(snapshot)
                 if (request == null) {
                     ensureActive()
@@ -346,7 +378,7 @@ class FittingRoomViewModel @Inject constructor(
                 when (outcome) {
                     null -> fail(AppError.Timeout)
                     is DataResult.Failure -> fail(outcome.error.toAppError())
-                    is DataResult.Success -> persistResult(outcome.value.image, snapshot)
+                    is DataResult.Success -> saveRenderedResult(outcome.value.image, snapshot)
                 }
             } finally {
                 timer.cancel()
@@ -392,8 +424,8 @@ class FittingRoomViewModel @Inject constructor(
             }
         }
 
-
-    private suspend fun persistResult(image: ByteArray, snapshot: FittingRoomUiState) {
+    /** Writes a synchronously rendered result to the image store, then to the lookbook. */
+    private suspend fun saveRenderedResult(image: ByteArray, snapshot: FittingRoomUiState) {
         val relativePath = imageStore.newRelativePath(MediaKind.LOOK)
         val written = withContext(ioDispatcher) {
             val target = imageStore.resolve(relativePath)
@@ -410,37 +442,21 @@ class FittingRoomViewModel @Inject constructor(
             fail(AppError.LocalMedia)
             return
         }
-        _uiState.update {
-            it.copy(
-                tryOnStage = TryOnStage.Completed,
-                result = TryOnResultUiState(
-                    relativePath = relativePath,
-                    garmentIds = snapshot.selection.selected.values.map { garment -> garment.id }.toSet(),
-                ),
-            )
+        val garmentIds = snapshot.selection.selected.values.map { garment -> garment.id }
+        when (lookbook.save(relativePath, garmentIds)) {
+            is DataResult.Success ->
+                _uiState.update {
+                    it.copy(tryOnStage = TryOnStage.Completed, savedConfirmation = true, elapsedSeconds = 0)
+                }
+            is DataResult.Failure -> {
+                withContext(ioDispatcher) { imageStore.delete(relativePath) }
+                fail(AppError.LocalMedia)
+            }
         }
-    }
-
-    private suspend fun discardStaleResult() {
-        val stale = _uiState.value.result ?: return
-        _uiState.update { it.copy(result = null) }
-        discard(stale)
-    }
-
-    private fun discard(state: TryOnResultUiState) {
-        if (state.saved) return
-        imageStore.delete(state.relativePath)
     }
 
     private fun fail(error: AppError) {
         _uiState.update { it.copy(tryOnStage = TryOnStage.Failed(error)) }
-    }
-
-    private fun updateResult(transform: (TryOnResultUiState) -> TryOnResultUiState) {
-        _uiState.update { current ->
-            val result = current.result
-            if (result == null) current else current.copy(result = transform(result))
-        }
     }
 
     private fun dropVanishedGarments(

@@ -18,8 +18,8 @@ import com.vesteai.domain.fitting.FittingRoomSelection
 import com.vesteai.domain.model.Garment
 import com.vesteai.domain.model.GarmentCategory
 import com.vesteai.feature.fittingroom.FittingRoomScreen
+import com.vesteai.feature.fittingroom.FittingRoomTab
 import com.vesteai.feature.fittingroom.FittingRoomUiState
-import com.vesteai.feature.fittingroom.TryOnResultUiState
 import com.vesteai.feature.fittingroom.TryOnStage
 import java.io.File
 import org.junit.Assert.assertEquals
@@ -56,15 +56,15 @@ class FittingRoomA11yTest {
                 baselineFile = baselineFile,
                 imageFile = { garmentImage },
                 onToggleGarment = onToggleGarment,
+                onSelectTab = {},
                 onTryOn = {},
                 onCancelTryOn = {},
                 onDismissTryOnError = {},
+                onDismissSavedConfirmation = {},
                 onRetry = {},
-                onSaveToLookbook = {},
-                onDismissSaveFailure = {},
-                onDismissShareFailure = {},
-                onShareResult = {},
-                onDiscardResult = {},
+                onCancelJob = {},
+                onRetryJob = {},
+                onRetrySaveJob = {},
             )
         }
     }
@@ -72,14 +72,16 @@ class FittingRoomA11yTest {
     private fun loadedState(
         selection: FittingRoomSelection = FittingRoomSelection.Empty,
         tryOnStage: TryOnStage = TryOnStage.Idle,
-        result: TryOnResultUiState? = null,
+        tab: FittingRoomTab = FittingRoomTab.TryOn,
+        jobs: List<com.vesteai.domain.vton.PendingJob> = emptyList(),
     ) = FittingRoomUiState(
         baselinePresent = true,
         garmentsByCategory = mapOf(GarmentCategory.TOP to listOf(top)),
         unsupportedCategories = setOf(GarmentCategory.HEADWEAR, GarmentCategory.FOOTWEAR),
         selection = selection,
         tryOnStage = tryOnStage,
-        result = result,
+        tab = tab,
+        jobs = jobs,
     )
 
     private fun string(id: Int, vararg args: Any) = resources.getString(id, *args)
@@ -196,48 +198,55 @@ class FittingRoomA11yTest {
     }
 
     @Test
-    fun theResultIsDescribedAndItsActionsAreNamedAndTouchSized() {
-        showScreen(
-            loadedState(
-                tryOnStage = TryOnStage.Completed,
-                result = TryOnResultUiState("looks/r1.jpg", setOf("t1")),
-            ),
-        )
+    fun theOngoingTabAnnouncesItselfAndTheEmptyStateReads() {
+        showScreen(loadedState(tab = FittingRoomTab.Ongoing))
 
-        compose.assertImageHasDescription(string(R.string.tryon_result_description))
-        compose.assertPrimaryActionReachable(string(R.string.action_save_to_lookbook))
-        compose.assertPrimaryActionReachable(string(R.string.action_share))
-        compose.assertPrimaryActionReachable(string(R.string.action_discard))
+        compose.assertTextDisplayed(string(R.string.fitting_room_tab_ongoing))
+        compose.assertTextDisplayed(string(R.string.fitting_room_ongoing_empty))
         compose.assertControlsAreAccessible()
     }
 
     @Test
-    fun theResultHeadingAnnouncesItselfWhenTheSheetOpens() {
+    fun aRunningJobOnTheOngoingTabKeepsCancelNamedAndTouchSized() {
         showScreen(
             loadedState(
-                tryOnStage = TryOnStage.Completed,
-                result = TryOnResultUiState("looks/r1.jpg", setOf("t1")),
+                tab = FittingRoomTab.Ongoing,
+                jobs = listOf(
+                    com.vesteai.domain.vton.PendingJob(
+                        id = "j1",
+                        providerName = "PixelAPI",
+                        garmentIds = listOf("t1"),
+                        baselineImagePath = "baseline/baseline.jpg",
+                        submittedAt = 0L,
+                        status = com.vesteai.domain.vton.JobStatus.Processing,
+                    ),
+                ),
             ),
         )
 
-        // The sheet opens without a focus change, so the heading has to be a live region for a
-        // screen reader to read it at all.
-        compose.onNodeWithText(string(R.string.tryon_stage_completed))
-            .assertIsDisplayed()
-            .assert(
-                SemanticsMatcher.expectValue(
-                    SemanticsProperties.LiveRegion,
-                    LiveRegionMode.Polite,
-                ),
-            )
+        compose.assertTextDisplayed(string(R.string.tryon_stage_processing))
+        compose.assertPrimaryActionReachable(string(R.string.action_cancel))
+        compose.assertControlsAreAccessible()
     }
 
     @Test
-    fun everyClickableThingInTheResultSheetReachesTheTouchTarget() {
+    fun everyClickableThingOnTheOngoingTabReachesTheTouchTarget() {
         showScreen(
             loadedState(
-                tryOnStage = TryOnStage.Completed,
-                result = TryOnResultUiState("looks/r1.jpg", setOf("t1")),
+                tab = FittingRoomTab.Ongoing,
+                jobs = listOf(
+                    com.vesteai.domain.vton.PendingJob(
+                        id = "j1",
+                        providerName = "PixelAPI",
+                        garmentIds = listOf("t1"),
+                        baselineImagePath = "baseline/baseline.jpg",
+                        submittedAt = 0L,
+                        status = com.vesteai.domain.vton.JobStatus.Failed(
+                            com.vesteai.domain.vton.VtonError.JobFailed(null),
+                            null,
+                        ),
+                    ),
+                ),
             ),
         )
 

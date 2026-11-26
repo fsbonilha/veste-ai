@@ -98,15 +98,15 @@ class LargeFontScaleTest {
                     baselineFile = null,
                     imageFile = { image },
                     onToggleGarment = {},
+                    onSelectTab = {},
                     onTryOn = {},
                     onCancelTryOn = {},
                     onDismissTryOnError = {},
+                    onDismissSavedConfirmation = {},
                     onRetry = {},
-                    onSaveToLookbook = {},
-                    onDismissSaveFailure = {},
-                    onDismissShareFailure = {},
-                    onShareResult = {},
-                    onDiscardResult = {},
+                    onCancelJob = {},
+                    onRetryJob = {},
+                    onRetrySaveJob = {},
                 )
             }
         }
@@ -160,17 +160,15 @@ class LargeFontScaleTest {
                     state = LookbookUiState.Content(looks = cards),
                     imageFile = { image },
                     onRetry = {},
+                    onOpenLook = {},
+                    onCloseLook = {},
+                    onShareLook = {},
                     onToggleFavorite = {},
                     onReload = {},
                     onRequestDelete = {},
                     onConfirmDelete = {},
                     onCancelDelete = {},
                     onDismissDeleteError = {},
-                    onCancelJob = {},
-                    onRetryJob = {},
-                    onSaveJobToLookbook = {},
-                    onDiscardJob = {},
-                    onReloadJob = {},
                 )
             }
         }

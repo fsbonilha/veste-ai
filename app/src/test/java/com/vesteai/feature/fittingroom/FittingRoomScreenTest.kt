@@ -59,9 +59,6 @@ class FittingRoomScreenTest {
         onToggleGarment: (Garment) -> Unit = {},
         onTryOn: () -> Unit = {},
         onCancelTryOn: () -> Unit = {},
-        onSaveToLookbook: () -> Unit = {},
-        onShareResult: (String) -> Unit = {},
-        onDiscardResult: () -> Unit = {},
     ) {
         compose.setContent {
             FittingRoomScreen(
@@ -69,15 +66,15 @@ class FittingRoomScreenTest {
                 baselineFile = baselineFile,
                 imageFile = { topImage },
                 onToggleGarment = onToggleGarment,
+                onSelectTab = {},
                 onTryOn = onTryOn,
                 onCancelTryOn = onCancelTryOn,
                 onDismissTryOnError = {},
+                onDismissSavedConfirmation = {},
                 onRetry = {},
-                onSaveToLookbook = onSaveToLookbook,
-                onDismissSaveFailure = {},
-                onDismissShareFailure = {},
-                onShareResult = onShareResult,
-                onDiscardResult = onDiscardResult,
+                onCancelJob = {},
+                onRetryJob = {},
+                onRetrySaveJob = {},
             )
         }
     }
@@ -87,8 +84,9 @@ class FittingRoomScreenTest {
         selection: FittingRoomSelection = FittingRoomSelection.Empty,
         tryOnStage: TryOnStage = TryOnStage.Idle,
         elapsedSeconds: Long = 0,
-        result: TryOnResultUiState? = null,
-        shareFailed: Boolean = false,
+        tab: FittingRoomTab = FittingRoomTab.TryOn,
+        savedConfirmation: Boolean = false,
+        jobs: List<com.vesteai.domain.vton.PendingJob> = emptyList(),
     ) = FittingRoomUiState(
         baselinePresent = true,
         garmentsByCategory = mapOf(
@@ -99,8 +97,9 @@ class FittingRoomScreenTest {
         selection = selection,
         tryOnStage = tryOnStage,
         elapsedSeconds = elapsedSeconds,
-        result = result,
-        shareFailed = shareFailed,
+        tab = tab,
+        savedConfirmation = savedConfirmation,
+        jobs = jobs,
     )
 
     @Test
@@ -234,14 +233,6 @@ class FittingRoomScreenTest {
     }
 
     @Test
-    fun missingShareTargetIsReportedRatherThanSilentlyIgnored() {
-        showScreen(loadedState(shareFailed = true))
-
-        compose.onNodeWithText(resources.getString(R.string.tryon_share_unavailable))
-            .assertIsDisplayed()
-    }
-
-    @Test
     fun providerGuidanceIsPreferredOverGenericCopy() {
         showScreen(
             loadedState(tryOnStage = TryOnStage.Failed(AppError.JobFailed("Waistband too dark"))),
@@ -251,49 +242,107 @@ class FittingRoomScreenTest {
     }
 
     @Test
-    fun resultSheetOffersSaveShareAndDiscard() {
-        var saves = 0
-        var shares = 0
-        var discards = 0
-        val result = TryOnResultUiState(relativePath = "looks/r1.jpg", garmentIds = setOf("t1"))
-        showScreen(
-            loadedState(tryOnStage = TryOnStage.Completed, result = result),
-            onSaveToLookbook = { saves++ },
-            onShareResult = { shares++ },
-            onDiscardResult = { discards++ },
-        )
+    fun ongoingTabIsSelectableAndShowsTheEmptyState() {
+        var selected: FittingRoomTab? = null
+        compose.setContent {
+            FittingRoomScreen(
+                state = loadedState(),
+                baselineFile = baseline,
+                imageFile = { topImage },
+                onToggleGarment = {},
+                onSelectTab = { selected = it },
+                onTryOn = {},
+                onCancelTryOn = {},
+                onDismissTryOnError = {},
+                onDismissSavedConfirmation = {},
+                onRetry = {},
+                onCancelJob = {},
+                onRetryJob = {},
+                onRetrySaveJob = {},
+            )
+        }
 
-        compose.onNodeWithText(resources.getString(R.string.action_save_to_lookbook))
-            .performScrollTo()
-            .assertIsDisplayed()
-        compose.onNodeWithText(resources.getString(R.string.action_share))
-            .performScrollTo()
-            .assertIsDisplayed()
-        compose.onNodeWithText(resources.getString(R.string.action_discard))
-            .performScrollTo()
-            .assertIsDisplayed()
+        compose.onNodeWithText(resources.getString(R.string.fitting_room_tab_ongoing)).performClick()
 
-        compose.onNodeWithText(resources.getString(R.string.action_share)).performClick()
-        compose.onNodeWithText(resources.getString(R.string.action_discard)).performClick()
-        compose.onNodeWithText(resources.getString(R.string.action_save_to_lookbook)).performClick()
-
-        assertEquals(1, shares)
-        assertEquals(1, discards)
-        assertEquals(1, saves)
+        assertEquals(FittingRoomTab.Ongoing, selected)
     }
 
     @Test
-    fun savedResultDisablesSavingAgain() {
-        val result = TryOnResultUiState(
-            relativePath = "looks/r1.jpg",
-            garmentIds = setOf("t1"),
-            saved = true,
+    fun ongoingTabListsRunningJobsWithACancel() {
+        var cancels = 0
+        val job = com.vesteai.domain.vton.PendingJob(
+            id = "j1",
+            providerName = "PixelAPI",
+            garmentIds = listOf("t1"),
+            baselineImagePath = "baseline/baseline.jpg",
+            submittedAt = 0L,
+            status = com.vesteai.domain.vton.JobStatus.Processing,
         )
-        showScreen(loadedState(tryOnStage = TryOnStage.Completed, result = result))
+        compose.setContent {
+            FittingRoomScreen(
+                state = loadedState(tab = FittingRoomTab.Ongoing, jobs = listOf(job)),
+                baselineFile = baseline,
+                imageFile = { topImage },
+                onToggleGarment = {},
+                onSelectTab = {},
+                onTryOn = {},
+                onCancelTryOn = {},
+                onDismissTryOnError = {},
+                onDismissSavedConfirmation = {},
+                onRetry = {},
+                onCancelJob = { cancels++ },
+                onRetryJob = {},
+                onRetrySaveJob = {},
+            )
+        }
+
+        compose.onNodeWithText(resources.getString(R.string.tryon_stage_processing)).assertIsDisplayed()
+        compose.onNodeWithText(resources.getString(R.string.action_cancel)).performClick()
+
+        assertEquals(1, cancels)
+    }
+
+    @Test
+    fun ongoingTabOffersRetryOnAFailedJob() {
+        var retries = 0
+        val job = com.vesteai.domain.vton.PendingJob(
+            id = "j1",
+            providerName = "PixelAPI",
+            garmentIds = listOf("t1"),
+            baselineImagePath = "baseline/baseline.jpg",
+            submittedAt = 0L,
+            status = com.vesteai.domain.vton.JobStatus.Failed(
+                com.vesteai.domain.vton.VtonError.JobFailed(null),
+                null,
+            ),
+        )
+        compose.setContent {
+            FittingRoomScreen(
+                state = loadedState(tab = FittingRoomTab.Ongoing, jobs = listOf(job)),
+                baselineFile = baseline,
+                imageFile = { topImage },
+                onToggleGarment = {},
+                onSelectTab = {},
+                onTryOn = {},
+                onCancelTryOn = {},
+                onDismissTryOnError = {},
+                onDismissSavedConfirmation = {},
+                onRetry = {},
+                onCancelJob = {},
+                onRetryJob = { retries++ },
+                onRetrySaveJob = {},
+            )
+        }
+
+        compose.onNodeWithText(resources.getString(R.string.action_retry)).performClick()
+
+        assertEquals(1, retries)
+    }
+
+    @Test
+    fun savedConfirmationIsShownAfterAnAutoSave() {
+        showScreen(loadedState(savedConfirmation = true))
 
         compose.onNodeWithText(resources.getString(R.string.tryon_saved)).assertIsDisplayed()
-        compose.onNodeWithText(resources.getString(R.string.action_save_to_lookbook))
-            .performScrollTo()
-            .assertIsNotEnabled()
     }
 }

@@ -38,6 +38,8 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -122,16 +124,17 @@ class FittingRoomViewModelTest {
     private class FakeJobRepository : JobRepository {
         val jobsFlow = MutableStateFlow<List<PendingJob>>(emptyList())
 
-        override fun observeActive(): Flow<List<PendingJob>> = jobsFlow
-
-        override fun observeUnseen(): Flow<List<PendingJob>> = MutableStateFlow(emptyList())
+        override fun observeActive(): Flow<List<PendingJob>> =
+            jobsFlow.map { jobs -> jobs.filter { it.isActive } }
 
         override fun observeAll(): Flow<List<PendingJob>> = jobsFlow
 
-        override suspend fun save(job: PendingJob): DataResult<PendingJob> =
-            DataResult.Success(job)
+        override suspend fun save(job: PendingJob): DataResult<PendingJob> {
+            jobsFlow.value = jobsFlow.value + job
+            return DataResult.Success(job)
+        }
 
-        override suspend fun getById(id: String): PendingJob? = null
+        override suspend fun getById(id: String): PendingJob? = jobsFlow.value.firstOrNull { it.id == id }
 
         override suspend fun updateProviderJobId(id: String, providerJobId: String) = Unit
 
@@ -141,9 +144,9 @@ class FittingRoomViewModelTest {
 
         override suspend fun fail(id: String, error: VtonError, guidance: String?) = Unit
 
-        override suspend fun markSeen(id: String) = Unit
-
-        override suspend fun delete(id: String) = Unit
+        override suspend fun delete(id: String) {
+            jobsFlow.value = jobsFlow.value.filterNot { it.id == id }
+        }
     }
 
     private class FakeEngine(
@@ -344,13 +347,10 @@ class FittingRoomViewModelTest {
         engine.gate?.complete(Unit)
         advanceUntilIdle()
 
-        val state = vm.uiState.value
-        assertEquals(TryOnStage.Completed, state.tryOnStage)
-        assertEquals(
-            FakeEngine.RESULT_BYTES.toList(),
-            vm.imageFile(state.result!!.relativePath).readBytes().toList(),
-        )
-        assertEquals(setOf("t1"), state.result!!.garmentIds)
+        assertEquals(TryOnStage.Completed, vm.uiState.value.tryOnStage)
+        // A synchronous render auto-saves, exactly like an async job the poller completes.
+        assertNotNull(lookbook.savedPath)
+        assertTrue(vm.uiState.value.savedConfirmation)
     }
 
     @Test
@@ -373,7 +373,7 @@ class FittingRoomViewModelTest {
         advanceUntilIdle()
 
         assertEquals(TryOnStage.Failed(AppError.BodyNotDetected), vm.uiState.value.tryOnStage)
-        assertEquals(null, vm.uiState.value.result)
+        assertNull(lookbook.savedPath)
     }
 
     @Test
@@ -494,63 +494,91 @@ class FittingRoomViewModelTest {
     }
 
     @Test
-    fun saveToLookbookPersistsTheRenderedFile() = runTest(dispatcher) {
+    fun aSynchronousRenderAutoSavesToTheLookbook() = runTest(dispatcher) {
         val vm = selectedViewModel()
+
         vm.tryOn()
         advanceUntilIdle()
-        val relativePath = vm.uiState.value.result!!.relativePath
 
-        vm.saveToLookbook()
-        advanceUntilIdle()
-
-        assertEquals(relativePath, lookbook.savedPath)
-        assertTrue(vm.uiState.value.result!!.saved)
+        assertNotNull(lookbook.savedPath)
+        assertTrue(vm.uiState.value.savedConfirmation)
     }
 
     @Test
-    fun failedSaveKeepsTheSheetOpenAndDeletesTheTempFile() = runTest(dispatcher) {
+    fun aFailedLookbookWriteSurfacesAsAFailure() = runTest(dispatcher) {
         lookbook.failing = true
         val vm = selectedViewModel()
+
         vm.tryOn()
         advanceUntilIdle()
-        val resultFile = vm.imageFile(vm.uiState.value.result!!.relativePath)
 
-        vm.saveToLookbook()
-        advanceUntilIdle()
-
-        assertTrue(vm.uiState.value.result!!.saveFailed)
-        assertFalse(resultFile.exists())
+        assertEquals(TryOnStage.Failed(AppError.LocalMedia), vm.uiState.value.tryOnStage)
+        assertNull(lookbook.savedPath)
     }
 
     @Test
-    fun discardDeletesTheTempResultFile() = runTest(dispatcher) {
+    fun dismissingTheSavedConfirmationClearsIt() = runTest(dispatcher) {
         val vm = selectedViewModel()
         vm.tryOn()
         advanceUntilIdle()
-        val resultFile = vm.imageFile(vm.uiState.value.result!!.relativePath)
-        assertTrue(resultFile.exists())
+        assertTrue(vm.uiState.value.savedConfirmation)
 
-        vm.discardResult()
-        advanceUntilIdle()
+        vm.dismissSavedConfirmation()
 
-        assertFalse(resultFile.exists())
-        assertEquals(null, vm.uiState.value.result)
-        assertEquals(TryOnStage.Idle, vm.uiState.value.tryOnStage)
+        assertFalse(vm.uiState.value.savedConfirmation)
     }
 
     @Test
-    fun aSecondTryOnDropsThePreviousUnsavedResult() = runTest(dispatcher) {
-        val vm = selectedViewModel()
-        vm.tryOn()
+    fun selectTabSwitchesTheVisiblePane() = runTest(dispatcher) {
+        val vm = viewModel()
         advanceUntilIdle()
-        val firstFile = vm.imageFile(vm.uiState.value.result!!.relativePath)
 
-        engine.gate = CompletableDeferred()
-        vm.tryOn()
-        advanceTimeBy(1)
+        assertEquals(FittingRoomTab.TryOn, vm.uiState.value.tab)
+        vm.selectTab(FittingRoomTab.Ongoing)
+        assertEquals(FittingRoomTab.Ongoing, vm.uiState.value.tab)
+    }
 
-        assertFalse(firstFile.exists())
-        assertEquals(TryOnStage.Processing, vm.uiState.value.tryOnStage)
+    @Test
+    fun ongoingJobsComeFromTheJobRepository() = runTest(dispatcher) {
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        jobRepo.jobsFlow.value = listOf(
+            PendingJob(
+                id = "j1",
+                providerName = "PixelAPI",
+                garmentIds = listOf("t1"),
+                baselineImagePath = ImageStore.BASELINE_PATH,
+                submittedAt = 0L,
+                status = JobStatus.Processing,
+            ),
+        )
+        advanceUntilIdle()
+
+        assertEquals(listOf("j1"), vm.uiState.value.ongoingJobs.map { it.id })
+        assertEquals(1, vm.uiState.value.activeJobCount)
+    }
+
+    @Test
+    fun cancelJobRemovesItFromTheRepository() = runTest(dispatcher) {
+        val vm = viewModel()
+        advanceUntilIdle()
+        val job = PendingJob(
+            id = "j1",
+            providerName = "PixelAPI",
+            garmentIds = listOf("t1"),
+            baselineImagePath = ImageStore.BASELINE_PATH,
+            submittedAt = 0L,
+            status = JobStatus.Processing,
+        )
+        jobRepo.jobsFlow.value = listOf(job)
+        advanceUntilIdle()
+
+        vm.cancelJob(job)
+        advanceUntilIdle()
+
+        // The fake records the delete by dropping the row; a real repo would too.
+        assertTrue(vm.uiState.value.ongoingJobs.isEmpty())
     }
 
     @Test

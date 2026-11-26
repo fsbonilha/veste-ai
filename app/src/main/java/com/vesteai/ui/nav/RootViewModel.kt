@@ -24,9 +24,9 @@ class RootViewModel @Inject constructor(
     private val _startsInOnboarding = MutableStateFlow<Boolean?>(null)
     val startsInOnboarding: StateFlow<Boolean?> = _startsInOnboarding.asStateFlow()
 
-    /** Number of completed/failed jobs the user has not yet seen, for the Lookbook tab badge. */
-    val lookbookBadgeCount: StateFlow<Int> =
-        jobRepository.observeUnseen()
+    /** Number of try-on jobs still running, for the Fitting Room tab badge. */
+    val activeJobCount: StateFlow<Int> =
+        jobRepository.observeActive()
             .map { jobs -> jobs.size }
             .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, 0)
 

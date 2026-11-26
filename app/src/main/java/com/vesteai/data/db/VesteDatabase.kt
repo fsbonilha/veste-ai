@@ -6,7 +6,7 @@ import androidx.room.TypeConverters
 
 @Database(
     entities = [GarmentEntity::class, OutfitEntity::class, OutfitGarmentCrossRef::class, PendingJobEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(CategoryConverter::class)

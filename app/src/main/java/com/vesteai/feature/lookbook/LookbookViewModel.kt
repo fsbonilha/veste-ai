@@ -4,11 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vesteai.core.media.ImageStore
 import com.vesteai.domain.model.Outfit
-import com.vesteai.domain.repository.JobRepository
 import com.vesteai.domain.repository.LookbookRepository
-import com.vesteai.domain.repository.WardrobeRepository
-import com.vesteai.domain.vton.JobStatus
-import com.vesteai.domain.vton.PendingJob
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -18,13 +14,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
-import java.util.UUID
 import javax.inject.Inject
 
 /** One grid card: the saved outfit plus its already-formatted creation date. */
@@ -37,7 +31,7 @@ sealed interface LookbookUiState {
 
     data class Content(
         val looks: List<LookCard>,
-        val pendingJobs: List<PendingJob> = emptyList(),
+        val viewing: LookCard? = null,
         val pendingDeletion: LookCard? = null,
         val deleteFailed: Boolean = false,
     ) : LookbookUiState
@@ -46,13 +40,12 @@ sealed interface LookbookUiState {
 @HiltViewModel
 class LookbookViewModel @Inject constructor(
     private val lookbook: LookbookRepository,
-    private val jobRepo: JobRepository,
-    private val wardrobe: WardrobeRepository,
     private val imageStore: ImageStore,
     private val dateFormatter: LookbookDateFormatter,
 ) : ViewModel() {
 
     private val attempt = MutableStateFlow(0)
+    private val viewingId = MutableStateFlow<String?>(null)
     private val pendingDeletionId = MutableStateFlow<String?>(null)
     private val deleteFailed = MutableStateFlow(false)
 
@@ -68,10 +61,10 @@ class LookbookViewModel @Inject constructor(
     }
 
     val uiState: StateFlow<LookbookUiState> =
-        combine(listing, pendingDeletionId, deleteFailed, jobRepo.observeAll()) { base, pendingId, failed, jobs ->
+        combine(listing, viewingId, pendingDeletionId, deleteFailed) { base, viewId, pendingId, failed ->
             if (base is LookbookUiState.Content) {
                 base.copy(
-                    pendingJobs = jobs,
+                    viewing = base.looks.firstOrNull { it.outfit.id == viewId },
                     pendingDeletion = base.looks.firstOrNull { it.outfit.id == pendingId },
                     deleteFailed = failed,
                 )
@@ -80,22 +73,22 @@ class LookbookViewModel @Inject constructor(
             }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, LookbookUiState.Loading)
 
-    /** Number of unseen terminal jobs, for the Lookbook tab badge. */
-    val unseenCount: StateFlow<Int> =
-        jobRepo.observeUnseen()
-            .map { jobs -> jobs.size }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
-
     fun imageFile(imagePath: String): File = imageStore.resolve(imagePath)
 
     /** Garment ids handed to the fitting room when a card is re-loaded. */
     fun reloadGarmentIds(look: LookCard): List<String> = look.outfit.garments.map { it.id }
 
-    /** Garment ids from a pending job, for re-loading into the fitting room. */
-    fun pendingJobGarmentIds(job: PendingJob): List<String> = job.garmentIds
-
     fun retry() {
         attempt.value += 1
+    }
+
+    /** Opens a saved look full-screen, like a photo in a gallery. */
+    fun openLook(look: LookCard) {
+        viewingId.value = look.outfit.id
+    }
+
+    fun closeLook() {
+        viewingId.value = null
     }
 
     fun toggleFavorite(look: LookCard) {
@@ -113,6 +106,8 @@ class LookbookViewModel @Inject constructor(
     fun confirmDelete() {
         val outfitId = pendingDeletionId.value ?: return
         pendingDeletionId.value = null
+        // Deleting the look being viewed closes the viewer with it.
+        if (viewingId.value == outfitId) viewingId.value = null
         viewModelScope.launch {
             deleteFailed.value = try {
                 lookbook.delete(outfitId)
@@ -127,58 +122,5 @@ class LookbookViewModel @Inject constructor(
 
     fun dismissDeleteError() {
         deleteFailed.value = false
-    }
-
-    /** Save a completed job's result to the lookbook, then delete the job row. */
-    fun saveJobToLookbook(job: PendingJob) {
-        if (job.status !is JobStatus.Completed) return
-        val resultPath = (job.status as JobStatus.Completed).resultImagePath
-        viewModelScope.launch {
-            lookbook.save(resultPath, job.garmentIds)
-            jobRepo.delete(job.id)
-        }
-    }
-
-    /** Discard a completed job's result file and delete the job row. */
-    fun discardJob(job: PendingJob) {
-        viewModelScope.launch {
-            if (job.status is JobStatus.Completed) {
-                imageStore.delete((job.status as JobStatus.Completed).resultImagePath)
-            }
-            jobRepo.delete(job.id)
-        }
-    }
-
-    /** Cancel an active (queued/processing) job — removes it from the poller's view. */
-    fun cancelJob(job: PendingJob) {
-        if (job.status.isTerminal) return
-        viewModelScope.launch { jobRepo.delete(job.id) }
-    }
-
-    /** Retry a failed job: delete the old row, create a new pending job for the poller. */
-    fun retryJob(job: PendingJob) {
-        if (job.status !is JobStatus.Failed) return
-        viewModelScope.launch {
-            val retry = PendingJob(
-                id = UUID.randomUUID().toString(),
-                providerName = job.providerName,
-                providerJobId = null,
-                garmentIds = job.garmentIds,
-                baselineImagePath = job.baselineImagePath,
-                submittedAt = job.submittedAt,
-                status = JobStatus.Queued,
-                seen = false,
-            )
-            jobRepo.save(retry)
-            jobRepo.delete(job.id)
-        }
-    }
-
-    /** Mark all unseen jobs as seen (called when the Lookbook tab is navigated to). */
-    fun markAllSeen() {
-        viewModelScope.launch {
-            val unseen = jobRepo.observeUnseen().first() ?: return@launch
-            unseen.forEach { jobRepo.markSeen(it.id) }
-        }
     }
 }

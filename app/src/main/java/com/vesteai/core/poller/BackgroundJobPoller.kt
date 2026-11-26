@@ -5,6 +5,7 @@ import com.vesteai.core.media.ImageStore
 import com.vesteai.core.media.MediaKind
 import com.vesteai.core.result.DataResult
 import com.vesteai.domain.repository.JobRepository
+import com.vesteai.domain.repository.LookbookRepository
 import com.vesteai.domain.repository.WardrobeRepository
 import com.vesteai.domain.vton.JobStatus
 import com.vesteai.domain.vton.PendingJob
@@ -33,6 +34,7 @@ import kotlin.time.Duration.Companion.seconds
 class BackgroundJobPoller @Inject constructor(
     private val engine: VtonEngine,
     private val jobRepo: JobRepository,
+    private val lookbook: LookbookRepository,
     private val wardrobe: WardrobeRepository,
     private val imageStore: ImageStore,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
@@ -114,8 +116,18 @@ class BackgroundJobPoller @Inject constructor(
                         null -> { /* still running */ }
                         is VtonPollResult.Completed -> {
                             val path = persistResult(job.id, outcome.image)
-                            if (path != null) jobRepo.complete(job.id, path)
-                            else jobRepo.fail(job.id, VtonError.JobFailed(null), "Could not save result image")
+                            if (path == null) {
+                                jobRepo.fail(job.id, VtonError.JobFailed(null), "Could not save result image")
+                                return
+                            }
+                            // Auto-save: a completed job becomes a look immediately, so the user
+                            // finds it in the Lookbook without a Save/Discard step. Only if that
+                            // write fails do we keep the job row, and then as a Completed job the
+                            // Ongoing list can offer a retry.
+                            when (lookbook.save(path, job.garmentIds)) {
+                                is DataResult.Success -> jobRepo.delete(job.id)
+                                is DataResult.Failure -> jobRepo.complete(job.id, path)
+                            }
                             return
                         }
                         is VtonPollResult.Failed -> {

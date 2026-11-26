@@ -4,6 +4,8 @@ import android.app.Application
 import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
+import com.vesteai.ui.common.LookSharing
+import com.vesteai.ui.common.fileProviderAuthority
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue

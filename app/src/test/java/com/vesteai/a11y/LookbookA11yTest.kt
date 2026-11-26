@@ -52,17 +52,15 @@ class LookbookA11yTest {
                 state = state,
                 imageFile = { image },
                 onRetry = {},
+                onOpenLook = {},
+                onCloseLook = {},
+                onShareLook = {},
                 onToggleFavorite = onToggleFavorite,
                 onReload = onReload,
                 onRequestDelete = {},
                 onConfirmDelete = {},
                 onCancelDelete = {},
                 onDismissDeleteError = {},
-                onCancelJob = {},
-                onRetryJob = {},
-                onSaveJobToLookbook = {},
-                onDiscardJob = {},
-                onReloadJob = {},
             )
         }
     }

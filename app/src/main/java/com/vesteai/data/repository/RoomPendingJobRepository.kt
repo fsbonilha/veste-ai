@@ -12,9 +12,6 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonPrimitive
 import javax.inject.Inject
 
 class RoomPendingJobRepository @Inject constructor(
@@ -24,9 +21,6 @@ class RoomPendingJobRepository @Inject constructor(
 
     override fun observeActive(): Flow<List<PendingJob>> =
         pendingJobDao.observeActive().map { rows -> rows.map { it.toDomain() } }
-
-    override fun observeUnseen(): Flow<List<PendingJob>> =
-        pendingJobDao.observeUnseen().map { rows -> rows.map { it.toDomain() } }
 
     override fun observeAll(): Flow<List<PendingJob>> =
         pendingJobDao.observeAll().map { rows -> rows.map { it.toDomain() } }
@@ -58,10 +52,6 @@ class RoomPendingJobRepository @Inject constructor(
         withContext(ioDispatcher) { pendingJobDao.fail(id, errorCodeFor(error), guidance) }
     }
 
-    override suspend fun markSeen(id: String) {
-        withContext(ioDispatcher) { pendingJobDao.markSeen(id) }
-    }
-
     override suspend fun delete(id: String) {
         withContext(ioDispatcher) { pendingJobDao.delete(id) }
     }
@@ -77,7 +67,6 @@ internal fun PendingJobEntity.toDomain(): PendingJob = PendingJob(
     baselineImagePath = baselineImagePath,
     submittedAt = submittedAt,
     status = parseStatus(status, resultImagePath, errorCode, guidance),
-    seen = seen,
 )
 
 internal fun PendingJob.toEntity(): PendingJobEntity = PendingJobEntity(
@@ -91,7 +80,6 @@ internal fun PendingJob.toEntity(): PendingJobEntity = PendingJobEntity(
     resultImagePath = if (status is JobStatus.Completed) (status as JobStatus.Completed).resultImagePath else null,
     errorCode = if (status is JobStatus.Failed) errorCodeFor((status as JobStatus.Failed).error) else null,
     guidance = if (status is JobStatus.Failed) (status as JobStatus.Failed).guidance else null,
-    seen = seen,
 )
 
 // ── Status string ↔ JobStatus ────────────────────────────────────────────────

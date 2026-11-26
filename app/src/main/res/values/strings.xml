@@ -59,12 +59,13 @@
         <item quantity="other">Deleting this garment will also delete %d lookbooks that contain it. These looks are gone for good and cannot be recovered. Do you really want to proceed?</item>
     </plurals>
 
-    <string name="lookbook_empty">No saved looks yet. Try something on and save the result to your lookbook.</string>
+    <string name="lookbook_empty">No saved looks yet. Start a try-on in the Fitting Room and the result will appear here.</string>
     <string name="lookbook_load_failed">Could not load your lookbook.</string>
     <string name="lookbook_delete_failed">Could not delete this look. Nothing was removed.</string>
     <string name="lookbook_saved_on">Saved on %1$s</string>
     <string name="lookbook_result_description">Saved look</string>
     <string name="lookbook_thumbnail_description">Garment in this look</string>
+    <string name="lookbook_viewer_close">Close</string>
     <string name="delete_lookbook_title">Delete this look?</string>
     <string name="delete_lookbook_body">This look will be removed from your lookbook and its image deleted. It is gone for good and cannot be recovered.</string>
     <string name="action_reload_in_fitting_room">Re-load in fitting room</string>
@@ -96,10 +97,14 @@
     <string name="fitting_room_open_drawer">Choose garments</string>
     <string name="fitting_room_drawer_empty">No garments in this category yet. Add them in the Wardrobe tab.</string>
     <string name="fitting_room_unsupported_category">This photo service cannot apply %1$s yet.</string>
+    <string name="fitting_room_tab_canvas">Canvas</string>
+    <string name="fitting_room_tab_ongoing">Ongoing</string>
+    <string name="fitting_room_ongoing_empty">No try-ons in progress.</string>
+    <string name="fitting_room_view_ongoing">Ongoing</string>
+    <string name="fitting_room_job_save_failed">Could not save this look. Tap Retry to save it to your lookbook.</string>
 
     <string name="action_try_on">Try On</string>
     <string name="action_remove_selection">Remove %1$s from the selection</string>
-    <string name="action_save_to_lookbook">Save to Lookbook</string>
     <string name="action_share">Share</string>
     <string name="action_discard">Discard</string>
     <string name="action_done">Done</string>
@@ -113,7 +118,6 @@
     <string name="tryon_saved">Saved to your lookbook.</string>
     <string name="tryon_result_description">The look generated from your baseline photo</string>
     <string name="tryon_save_failed">Could not save this look. Nothing was added to your lookbook.</string>
-    <string name="tryon_share_unavailable">No app on this device can share the image.</string>
 
     <string name="share_look_chooser_title">Share your look</string>
     <string name="share_look_subject">My Veste AI look</string>
@@ -194,9 +198,8 @@
     <string name="garment_camera_preview_description">Live camera preview of the garment</string>
     <string name="garment_camera_shutter">Take photo</string>
 
-    <!-- Async try-on pending jobs in the Lookbook -->
-    <string name="lookbook_pending_section">In progress</string>
-    <string name="lookbook_job_garments">%1$d garment(s)</string>
-    <string name="lookbook_job_failed">Try On failed. Tap Retry to try again.</string>
+    <!-- Async try-on jobs, shown in the Fitting Room's Ongoing tab -->
+    <string name="fitting_room_job_garments">%1$d garment(s)</string>
+    <string name="fitting_room_job_failed">Try On failed. Tap Retry to try again.</string>
     <string name="tryon_stage_failed">Try On failed</string>
 </resources>

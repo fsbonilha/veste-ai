@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -52,7 +53,10 @@ import com.vesteai.R
 import com.vesteai.core.error.userMessage
 import com.vesteai.domain.model.Garment
 import com.vesteai.domain.model.GarmentCategory
+import com.vesteai.domain.vton.JobStatus
+import com.vesteai.domain.vton.PendingJob
 import com.vesteai.feature.wardrobe.labelRes
+import com.vesteai.ui.common.EmptyState
 import com.vesteai.ui.common.ErrorState
 import com.vesteai.ui.common.LoadingState
 import com.vesteai.ui.common.MinimumTouchTarget
@@ -65,40 +69,109 @@ internal fun FittingRoomScreen(
     baselineFile: File?,
     imageFile: (String) -> File,
     onToggleGarment: (Garment) -> Unit,
+    onSelectTab: (FittingRoomTab) -> Unit,
     onTryOn: () -> Unit,
     onCancelTryOn: () -> Unit,
     onDismissTryOnError: () -> Unit,
+    onDismissSavedConfirmation: () -> Unit,
     onRetry: () -> Unit,
-    onSaveToLookbook: () -> Unit,
-    onDismissSaveFailure: () -> Unit,
-    onDismissShareFailure: () -> Unit,
-    onShareResult: (String) -> Unit,
-    onDiscardResult: () -> Unit,
+    onCancelJob: (PendingJob) -> Unit,
+    onRetryJob: (PendingJob) -> Unit,
+    onRetrySaveJob: (PendingJob) -> Unit,
 ) {
-    var drawerOpen by rememberSaveable { mutableStateOf(false) }
-
-    Box(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize()) {
         when {
             state.loading -> LoadingState()
             state.loadFailed -> ErrorState(
                 message = stringResource(R.string.fitting_room_load_failed),
                 onRetry = onRetry,
             )
-            else -> Column(modifier = Modifier.fillMaxSize()) {
-                Canvas(
-                    state = state,
-                    baselineFile = baselineFile,
-                    imageFile = imageFile,
-                    onToggleGarment = onToggleGarment,
-                    modifier = Modifier.weight(1f),
-                )
-                TryOnProgress(state = state, onCancel = onCancelTryOn)
-                ActionBar(
-                    state = state,
-                    onOpenDrawer = { drawerOpen = true },
-                    onTryOn = onTryOn,
-                )
+            else -> {
+                FittingRoomTabs(state = state, onSelectTab = onSelectTab)
+                Box(modifier = Modifier.weight(1f)) {
+                    when (state.tab) {
+                        FittingRoomTab.TryOn -> TryOnPane(
+                            state = state,
+                            baselineFile = baselineFile,
+                            imageFile = imageFile,
+                            onToggleGarment = onToggleGarment,
+                            onTryOn = onTryOn,
+                            onCancelTryOn = onCancelTryOn,
+                            onDismissTryOnError = onDismissTryOnError,
+                            onOpenOngoing = { onSelectTab(FittingRoomTab.Ongoing) },
+                        )
+                        FittingRoomTab.Ongoing -> OngoingPane(
+                            state = state,
+                            onCancelJob = onCancelJob,
+                            onRetryJob = onRetryJob,
+                            onRetrySaveJob = onRetrySaveJob,
+                        )
+                    }
+                }
+                if (state.savedConfirmation) {
+                    SavedBanner(onDismiss = onDismissSavedConfirmation)
+                }
             }
+        }
+    }
+}
+
+/** Segmented control: Try On, with an "Ongoing" tab that badges the active-job count. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FittingRoomTabs(state: FittingRoomUiState, onSelectTab: (FittingRoomTab) -> Unit) {
+    PrimaryScrollableTabRow(
+        selectedTabIndex = if (state.tab == FittingRoomTab.TryOn) 0 else 1,
+        edgePadding = 8.dp,
+    ) {
+        Tab(
+            selected = state.tab == FittingRoomTab.TryOn,
+            onClick = { onSelectTab(FittingRoomTab.TryOn) },
+            text = { Text(stringResource(R.string.fitting_room_tab_canvas)) },
+        )
+        Tab(
+            selected = state.tab == FittingRoomTab.Ongoing,
+            onClick = { onSelectTab(FittingRoomTab.Ongoing) },
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(stringResource(R.string.fitting_room_tab_ongoing))
+                    if (state.activeJobCount > 0) {
+                        Badge { Text(state.activeJobCount.toString()) }
+                    }
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun TryOnPane(
+    state: FittingRoomUiState,
+    baselineFile: File?,
+    imageFile: (String) -> File,
+    onToggleGarment: (Garment) -> Unit,
+    onTryOn: () -> Unit,
+    onCancelTryOn: () -> Unit,
+    onDismissTryOnError: () -> Unit,
+    onOpenOngoing: () -> Unit,
+) {
+    var drawerOpen by rememberSaveable { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Canvas(
+                state = state,
+                baselineFile = baselineFile,
+                imageFile = imageFile,
+                onToggleGarment = onToggleGarment,
+                modifier = Modifier.weight(1f),
+            )
+            TryOnProgress(state = state, onCancel = onCancelTryOn, onOpenOngoing = onOpenOngoing)
+            ActionBar(
+                state = state,
+                onOpenDrawer = { drawerOpen = true },
+                onTryOn = onTryOn,
+            )
         }
 
         val tryOnStage = state.tryOnStage
@@ -108,12 +181,6 @@ internal fun FittingRoomScreen(
         ) {
             if (tryOnStage is TryOnStage.Failed) {
                 ErrorBanner(message = userMessage(tryOnStage.error), onDismiss = onDismissTryOnError)
-            }
-            if (state.shareFailed) {
-                ErrorBanner(
-                    message = stringResource(R.string.tryon_share_unavailable),
-                    onDismiss = onDismissShareFailure,
-                )
             }
         }
 
@@ -125,17 +192,95 @@ internal fun FittingRoomScreen(
                 onDismiss = { drawerOpen = false },
             )
         }
+    }
+}
 
-        val result = state.result
-        if (result != null && state.tryOnStage == TryOnStage.Completed) {
-            ResultSheet(
-                result = result,
-                imageFile = imageFile,
-                onSaveToLookbook = onSaveToLookbook,
-                onDismissSaveFailure = onDismissSaveFailure,
-                onShare = { onShareResult(result.relativePath) },
-                onDiscard = onDiscardResult,
+@Composable
+private fun OngoingPane(
+    state: FittingRoomUiState,
+    onCancelJob: (PendingJob) -> Unit,
+    onRetryJob: (PendingJob) -> Unit,
+    onRetrySaveJob: (PendingJob) -> Unit,
+) {
+    if (state.ongoingJobs.isEmpty()) {
+        EmptyState(message = stringResource(R.string.fitting_room_ongoing_empty))
+        return
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        state.ongoingJobs.forEach { job ->
+            OngoingJobCard(
+                job = job,
+                onCancel = { onCancelJob(job) },
+                onRetry = { onRetryJob(job) },
+                onRetrySave = { onRetrySaveJob(job) },
             )
+        }
+    }
+}
+
+@Composable
+private fun OngoingJobCard(
+    job: PendingJob,
+    onCancel: () -> Unit,
+    onRetry: () -> Unit,
+    onRetrySave: () -> Unit,
+) {
+    androidx.compose.material3.Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(
+                    when (job.status) {
+                        is JobStatus.Queued -> R.string.tryon_stage_queued
+                        is JobStatus.Processing -> R.string.tryon_stage_processing
+                        is JobStatus.Completed -> R.string.tryon_stage_completed
+                        is JobStatus.Failed -> R.string.tryon_stage_failed
+                    },
+                ),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Text(
+                text = stringResource(R.string.fitting_room_job_garments, job.garmentIds.size),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            when {
+                job.isActive -> {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    TextButton(onClick = onCancel, modifier = Modifier.accessibleTouchTarget()) {
+                        Text(stringResource(R.string.action_cancel))
+                    }
+                }
+                job.status is JobStatus.Failed -> {
+                    Text(
+                        text = stringResource(R.string.fitting_room_job_failed),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    OutlinedButton(onClick = onRetry, modifier = Modifier.accessibleTouchTarget()) {
+                        Text(stringResource(R.string.action_retry))
+                    }
+                }
+                job.status is JobStatus.Completed -> {
+                    // Reached only when the lookbook write failed after a successful render.
+                    Text(
+                        text = stringResource(R.string.fitting_room_job_save_failed),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    OutlinedButton(onClick = onRetrySave, modifier = Modifier.accessibleTouchTarget()) {
+                        Text(stringResource(R.string.action_retry))
+                    }
+                }
+            }
         }
     }
 }
@@ -224,9 +369,9 @@ private fun SelectionChips(
     }
 }
 
-/** Staged progress for a long-running job: text stages, elapsed timer and Cancel. */
+/** Staged progress for a long-running job: text stages, elapsed timer, Cancel and a link to Ongoing. */
 @Composable
-private fun TryOnProgress(state: FittingRoomUiState, onCancel: () -> Unit) {
+private fun TryOnProgress(state: FittingRoomUiState, onCancel: () -> Unit, onOpenOngoing: () -> Unit) {
     val stage = state.tryOnStage
     if (!stage.isInFlight) return
     Column(
@@ -251,10 +396,15 @@ private fun TryOnProgress(state: FittingRoomUiState, onCancel: () -> Unit) {
                 text = elapsedLabel(state),
                 style = MaterialTheme.typography.bodyMedium,
             )
-            TextButton(
-                onClick = onCancel,
-                modifier = Modifier.accessibleTouchTarget(),
-            ) { Text(stringResource(R.string.action_cancel)) }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                // A job keeps running if the user leaves; the link says so without a second button.
+                TextButton(onClick = onOpenOngoing, modifier = Modifier.accessibleTouchTarget()) {
+                    Text(stringResource(R.string.fitting_room_view_ongoing))
+                }
+                TextButton(onClick = onCancel, modifier = Modifier.accessibleTouchTarget()) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
         }
     }
 }
@@ -312,6 +462,30 @@ private fun ActionBar(
             modifier = Modifier.weight(1f).heightIn(min = MinimumTouchTarget),
         ) {
             Text(stringResource(R.string.action_try_on), maxLines = 2)
+        }
+    }
+}
+
+@Composable
+private fun SavedBanner(onDismiss: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .background(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.shapes.medium)
+            .padding(12.dp)
+            .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.tryon_saved),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = onDismiss, modifier = Modifier.accessibleTouchTarget()) {
+            Text(stringResource(R.string.action_dismiss))
         }
     }
 }
@@ -462,101 +636,5 @@ private fun DrawerGarmentRow(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ResultSheet(
-    result: TryOnResultUiState,
-    imageFile: (String) -> File,
-    onSaveToLookbook: () -> Unit,
-    onDismissSaveFailure: () -> Unit,
-    onShare: () -> Unit,
-    onDiscard: () -> Unit,
-) {
-    // The result is the point of the flow, so it opens fully rather than at the half detent.
-    ModalBottomSheet(
-        onDismissRequest = {},
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            // The sheet opens on a screen the user was not looking at, so the heading announces
-            // itself; the image below it is described rather than left as an unnamed picture.
-            Text(
-                text = stringResource(R.string.tryon_stage_completed),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-            )
-            AsyncImage(
-                model = imageFile(result.relativePath),
-                contentDescription = stringResource(R.string.tryon_result_description),
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxWidth().heightIn(max = RESULT_IMAGE_MAX_HEIGHT),
-            )
-            if (result.saveFailed) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.tryon_save_failed),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.weight(1f),
-                    )
-                    TextButton(
-                        onClick = onDismissSaveFailure,
-                        modifier = Modifier.accessibleTouchTarget(),
-                    ) {
-                        Text(stringResource(R.string.action_dismiss))
-                    }
-                }
-            }
-            if (result.saved) {
-                Text(
-                    text = stringResource(R.string.tryon_saved),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                )
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = onSaveToLookbook,
-                    enabled = !result.saving && !result.saved,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = MinimumTouchTarget),
-                    contentPadding = PaddingValues(12.dp),
-                ) { Text(stringResource(R.string.action_save_to_lookbook)) }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = onShare,
-                        modifier = Modifier.weight(1f).heightIn(min = MinimumTouchTarget),
-                        contentPadding = PaddingValues(12.dp),
-                    ) { Text(stringResource(R.string.action_share)) }
-                    OutlinedButton(
-                        onClick = onDiscard,
-                        modifier = Modifier.weight(1f).heightIn(min = MinimumTouchTarget),
-                        contentPadding = PaddingValues(12.dp),
-                    ) {
-                        // Once saved the file belongs to the lookbook, so the action only closes.
-                        Text(
-                            stringResource(
-                                if (result.saved) R.string.action_done else R.string.action_discard,
-                            ),
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
 private const val CHIP_ALPHA = 0.75f
 private const val DISABLED_ALPHA = 0.4f
-private val RESULT_IMAGE_MAX_HEIGHT = 240.dp

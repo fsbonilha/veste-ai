@@ -3,6 +3,8 @@ package com.vesteai.ui.nav
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -59,7 +61,7 @@ fun VesteNavHost(rootViewModel: RootViewModel = hiltViewModel()) {
     if (onboarding) {
         LaunchFlow(onComplete = rootViewModel::onOnboardingFinished)
     } else {
-        HomeShell()
+        HomeShell(rootViewModel)
     }
 }
 
@@ -72,10 +74,11 @@ private fun LaunchFlow(onComplete: () -> Unit) {
 }
 
 @Composable
-private fun HomeShell() {
+private fun HomeShell(rootViewModel: RootViewModel) {
     val navController = rememberNavController()
     val entry by navController.currentBackStackEntryAsState()
     val current = entry?.destination
+    val activeJobCount by rootViewModel.activeJobCount.collectAsState()
 
     Scaffold(
         bottomBar = {
@@ -85,10 +88,23 @@ private fun HomeShell() {
                         selected = current.isOn(tab),
                         onClick = { navController.switchTab(tab) },
                         icon = {
-                            Icon(
-                                painter = painterResource(tab.iconRes),
-                                contentDescription = null,
-                            )
+                            // Jobs live in the fitting room, so its tab carries the count. The
+                            // badge is what tells a user who walked away that work is still running.
+                            if (tab == HomeTab.FittingRoom && activeJobCount > 0) {
+                                BadgedBox(
+                                    badge = { Badge { Text(activeJobCount.toString()) } },
+                                ) {
+                                    Icon(
+                                        painter = painterResource(tab.iconRes),
+                                        contentDescription = null,
+                                    )
+                                }
+                            } else {
+                                Icon(
+                                    painter = painterResource(tab.iconRes),
+                                    contentDescription = null,
+                                )
+                            }
                         },
                         label = { Text(stringResource(tab.labelRes)) },
                     )

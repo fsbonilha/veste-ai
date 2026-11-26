@@ -472,16 +472,26 @@ Details that need explicit handling:
   both items on the active canvas layer" is a highlight, not a fake try-on; do not
   alpha-blend garment cutouts over the body.
 - **Try On progress**: PixelAPI is async — ~35 s for one garment, ~90 s advertised for
-  an outfit — so this is a long operation, not a spinner. Show the job's real stage
-  (`queued` → `processing` → `completed`) with an elapsed timer and a Cancel that
-  cancels the polling coroutine. Overall timeout 600 s, a ceiling for a slow queue rather
-  than an expected duration; `FittingRoomViewModel.OVERALL_TIMEOUT_MILLIS` must stay at or
+  an outfit — so this is a long operation, not a spinner. The Fitting Room has two
+  tabs: **Try On** (canvas, selection, the Try On button) and **Ongoing** (a list of
+  in-flight and failed jobs, with a count badge). A job's real stage
+  (`queued` → `processing` → `completed`) shows as an elapsed timer plus the provider's
+  own queue copy. Overall timeout 600 s, a ceiling for a slow queue rather than an
+  expected duration; `FittingRoomViewModel.OVERALL_TIMEOUT_MILLIS` must stay at or
   above `PixelApiConfig.overallTimeout`, or the outer guard fires first and the engine's
   own timeout becomes unreachable.
   Disable Try On while a job is in flight, and surface the provider's own
   `guidance` text on failure instead of inventing copy.
-- **Result sheet**: Save to Lookbook / Share (`FileProvider` + `ACTION_SEND`) /
-  Discard. Discard deletes the temp result file.
+- **Async jobs live in the Fitting Room, not the Lookbook.** A try-on is submitted as a
+  persisted `PendingJob`; a process-wide `BackgroundJobPoller` picks it up, submits,
+  polls, and on completion **writes the result straight to the Lookbook and deletes the
+  job row**. There is no Save/Discard step and no result sheet. The Lookbook is a plain
+  gallery of saved looks; tapping a look opens it full-screen with pinch/pan zoom
+  (`LookViewer`), like a photo in a gallery. Failed jobs stay in the Ongoing tab with a
+  Retry; a job whose lookbook write fails stays as a Completed row with a Retry-save.
+- **Polling cadence**: 30 s while a job runs in the background, relaxed to stay inside
+  the provider's free-tier rate limit. The Fitting Room's inline progress still updates
+  from the engine's own `progress` flow while the user watches.
 - **Loading/empty/error states** on every screen; VTON errors map to user-facing
   copy through `AppError`, never a raw exception string.
 - **Debug HTTP logging** (§6.4): `HttpLogging` is a variant-bound seam in `core/di`.

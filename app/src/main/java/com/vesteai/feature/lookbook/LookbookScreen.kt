@@ -1,5 +1,9 @@
 package com.vesteai.feature.lookbook
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -20,25 +23,33 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
 import com.vesteai.R
 import com.vesteai.domain.model.Garment
-import com.vesteai.domain.vton.JobStatus
-import com.vesteai.domain.vton.PendingJob
 import com.vesteai.feature.wardrobe.labelRes
 import com.vesteai.ui.common.EmptyState
 import com.vesteai.ui.common.ErrorState
@@ -52,17 +63,15 @@ internal fun LookbookScreen(
     state: LookbookUiState,
     imageFile: (String) -> File,
     onRetry: () -> Unit,
+    onOpenLook: (LookCard) -> Unit,
+    onCloseLook: () -> Unit,
+    onShareLook: (LookCard) -> Unit,
     onToggleFavorite: (LookCard) -> Unit,
     onReload: (LookCard) -> Unit,
     onRequestDelete: (LookCard) -> Unit,
     onConfirmDelete: () -> Unit,
     onCancelDelete: () -> Unit,
     onDismissDeleteError: () -> Unit,
-    onCancelJob: (PendingJob) -> Unit,
-    onRetryJob: (PendingJob) -> Unit,
-    onSaveJobToLookbook: (PendingJob) -> Unit,
-    onDiscardJob: (PendingJob) -> Unit,
-    onReloadJob: (PendingJob) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         when (state) {
@@ -74,27 +83,28 @@ internal fun LookbookScreen(
             )
 
             is LookbookUiState.Content -> {
-                if (state.pendingJobs.isNotEmpty()) {
-                    PendingJobList(
-                        jobs = state.pendingJobs,
-                        imageFile = imageFile,
-                        onCancel = onCancelJob,
-                        onRetry = onRetryJob,
-                        onSave = onSaveJobToLookbook,
-                        onDiscard = onDiscardJob,
-                        onReload = onReloadJob,
-                    )
-                }
                 if (state.looks.isEmpty()) {
                     EmptyState(message = stringResource(R.string.lookbook_empty))
                 } else {
                     LookGrid(
                         looks = state.looks,
                         imageFile = imageFile,
+                        onOpenLook = onOpenLook,
                         onToggleFavorite = onToggleFavorite,
                         onReload = onReload,
                         onRequestDelete = onRequestDelete,
                         modifier = Modifier.weight(1f),
+                    )
+                }
+                state.viewing?.let { viewing ->
+                    LookViewer(
+                        look = viewing,
+                        imageFile = imageFile,
+                        onDismiss = onCloseLook,
+                        onShare = { onShareLook(viewing) },
+                        onToggleFavorite = { onToggleFavorite(viewing) },
+                        onReload = { onReload(viewing) },
+                        onDelete = { onRequestDelete(viewing) },
                     )
                 }
                 state.pendingDeletion?.let {
@@ -118,104 +128,11 @@ internal fun LookbookScreen(
     }
 }
 
-/** Cards for in-progress and recently-completed try-on jobs. */
-@Composable
-private fun PendingJobList(
-    jobs: List<PendingJob>,
-    imageFile: (String) -> File,
-    onCancel: (PendingJob) -> Unit,
-    onRetry: (PendingJob) -> Unit,
-    onSave: (PendingJob) -> Unit,
-    onDiscard: (PendingJob) -> Unit,
-    onReload: (PendingJob) -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text(
-            text = stringResource(R.string.lookbook_pending_section),
-            style = MaterialTheme.typography.titleSmall,
-        )
-        jobs.forEach { job -> PendingJobCard(job, imageFile, onCancel, onRetry, onSave, onDiscard, onReload) }
-    }
-}
-
-@Composable
-private fun PendingJobCard(
-    job: PendingJob,
-    imageFile: (String) -> File,
-    onCancel: (PendingJob) -> Unit,
-    onRetry: (PendingJob) -> Unit,
-    onSave: (PendingJob) -> Unit,
-    onDiscard: (PendingJob) -> Unit,
-    onReload: (PendingJob) -> Unit,
-) {
-    val isActive = !job.status.isTerminal
-    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = stringResource(
-                    if (job.status is JobStatus.Queued) R.string.tryon_stage_queued
-                    else if (job.status is JobStatus.Processing) R.string.tryon_stage_processing
-                    else if (job.status is JobStatus.Completed) R.string.tryon_stage_completed
-                    else R.string.tryon_stage_failed
-                ),
-                style = MaterialTheme.typography.labelLarge,
-            )
-            val garmentCount = job.garmentIds.size
-            Text(
-                text = stringResource(R.string.lookbook_job_garments, garmentCount),
-                style = MaterialTheme.typography.bodySmall,
-            )
-            if (isActive) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(
-                        onClick = { onCancel(job) },
-                        modifier = Modifier.accessibleTouchTarget(),
-                    ) { Text(stringResource(R.string.action_cancel)) }
-                }
-            } else if (job.status is JobStatus.Completed) {
-                val completed = job.status as JobStatus.Completed
-                AsyncImage(
-                    model = imageFile(completed.resultImagePath),
-                    contentDescription = stringResource(R.string.tryon_result_description),
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp),
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { onSave(job) },
-                        modifier = Modifier.accessibleTouchTarget(),
-                    ) { Text(stringResource(R.string.action_save_to_lookbook)) }
-                    OutlinedButton(
-                        onClick = { onDiscard(job) },
-                        modifier = Modifier.accessibleTouchTarget(),
-                    ) { Text(stringResource(R.string.action_discard)) }
-                    OutlinedButton(
-                        onClick = { onReload(job) },
-                        modifier = Modifier.accessibleTouchTarget(),
-                    ) {
-                        Text(stringResource(R.string.action_reload_in_fitting_room))
-                    }
-                }
-            } else if (job.status is JobStatus.Failed) {
-                Text(
-                    text = stringResource(R.string.lookbook_job_failed),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
-                OutlinedButton(
-                    onClick = { onRetry(job) },
-                    modifier = Modifier.accessibleTouchTarget(),
-                ) { Text(stringResource(R.string.action_retry)) }
-            }
-        }
-    }
-}
-
 @Composable
 private fun LookGrid(
     looks: List<LookCard>,
     imageFile: (String) -> File,
+    onOpenLook: (LookCard) -> Unit,
     onToggleFavorite: (LookCard) -> Unit,
     onReload: (LookCard) -> Unit,
     onRequestDelete: (LookCard) -> Unit,
@@ -232,6 +149,7 @@ private fun LookGrid(
             LookTile(
                 look = look,
                 imageFile = imageFile,
+                onOpen = { onOpenLook(look) },
                 onToggleFavorite = { onToggleFavorite(look) },
                 onReload = { onReload(look) },
                 onRequestDelete = { onRequestDelete(look) },
@@ -244,6 +162,7 @@ private fun LookGrid(
 private fun LookTile(
     look: LookCard,
     imageFile: (String) -> File,
+    onOpen: () -> Unit,
     onToggleFavorite: () -> Unit,
     onReload: () -> Unit,
     onRequestDelete: () -> Unit,
@@ -255,13 +174,17 @@ private fun LookTile(
     val reloadLabel = stringResource(R.string.action_reload_look_named, savedOn)
     Card {
         Column {
+            // The image itself opens the look, like a photo in a gallery. The tap area is the whole
+            // picture, not a small target, and the date stays its description so cards are
+            // tellable apart.
             AsyncImage(
                 model = imageFile(look.outfit.resultImagePath),
                 contentDescription = stringResource(R.string.lookbook_saved_on, savedOn),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(3f / 4f),
+                    .aspectRatio(3f / 4f)
+                    .clickable(onClick = onOpen),
             )
             Column(
                 modifier = Modifier.padding(12.dp),
@@ -318,6 +241,98 @@ private fun LookTile(
     }
 }
 
+/** Full-screen, zoomable view of one saved look, opened from a tile. */
+@Composable
+private fun LookViewer(
+    look: LookCard,
+    imageFile: (String) -> File,
+    onDismiss: () -> Unit,
+    onShare: () -> Unit,
+    onToggleFavorite: () -> Unit,
+    onReload: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    var offsetY by remember { mutableFloatStateOf(0f) }
+    val transformState = rememberTransformableState { zoomChange, panChange, _ ->
+        // Clamp to [1x, 5x] so the photo can never shrink below fit or zoom away forever.
+        scale = (scale * zoomChange).coerceIn(1f, 5f)
+        offsetX += panChange.x
+        offsetY += panChange.y
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+        ) {
+            AsyncImage(
+                model = imageFile(look.outfit.resultImagePath),
+                contentDescription = stringResource(R.string.tryon_result_description),
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer(
+                        scaleX = scale,
+                        scaleY = scale,
+                        translationX = offsetX,
+                        translationY = offsetY,
+                    )
+                    .transformable(transformState),
+            )
+
+            val closeLabel = stringResource(R.string.lookbook_viewer_close)
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+                    .accessibleTouchTarget()
+                    .semantics { contentDescription = closeLabel },
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_close),
+                    contentDescription = null,
+                    tint = Color.White,
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(Color.Black.copy(alpha = VIEWER_SCRIM_ALPHA))
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(onClick = onShare, modifier = Modifier.accessibleTouchTarget()) {
+                    Text(stringResource(R.string.action_share), color = Color.White)
+                }
+                TextButton(onClick = onToggleFavorite, modifier = Modifier.accessibleTouchTarget()) {
+                    Text(
+                        text = stringResource(
+                            if (look.outfit.isFavorite) R.string.action_unfavorite else R.string.action_favorite,
+                        ),
+                        color = Color.White,
+                    )
+                }
+                TextButton(onClick = onReload, modifier = Modifier.accessibleTouchTarget()) {
+                    Text(stringResource(R.string.action_reload_in_fitting_room), color = Color.White)
+                }
+                TextButton(onClick = onDelete, modifier = Modifier.accessibleTouchTarget()) {
+                    Text(stringResource(R.string.action_delete), color = Color.White)
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun GarmentThumbnailStrip(garments: List<Garment>, imageFile: (String) -> File) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -353,3 +368,5 @@ private fun DeleteLookDialog(onConfirm: () -> Unit, onCancel: () -> Unit) {
         },
     )
 }
+
+private const val VIEWER_SCRIM_ALPHA = 0.6f
