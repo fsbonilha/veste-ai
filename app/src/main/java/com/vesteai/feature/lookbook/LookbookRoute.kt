@@ -12,6 +12,8 @@ fun LookbookRoute(
 ) {
     val state by viewModel.uiState.collectAsState()
 
+    viewModel.markAllSeen()
+
     LookbookScreen(
         state = state,
         imageFile = viewModel::imageFile,
@@ -22,5 +24,10 @@ fun LookbookRoute(
         onConfirmDelete = viewModel::confirmDelete,
         onCancelDelete = viewModel::cancelDelete,
         onDismissDeleteError = viewModel::dismissDeleteError,
+        onCancelJob = viewModel::cancelJob,
+        onRetryJob = viewModel::retryJob,
+        onSaveJobToLookbook = viewModel::saveJobToLookbook,
+        onDiscardJob = viewModel::discardJob,
+        onReloadJob = { job -> onReloadInFittingRoom(viewModel.pendingJobGarmentIds(job)) },
     )
 }

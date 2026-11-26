@@ -2,23 +2,33 @@ package com.vesteai.ui.nav
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vesteai.domain.repository.JobRepository
 import com.vesteai.domain.repository.ProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class RootViewModel @Inject constructor(
     profileRepository: ProfileRepository,
+    jobRepository: JobRepository,
 ) : ViewModel() {
 
     /** Null until the stored flag is read. Read once so finishing onboarding never re-keys the NavHost. */
     private val _startsInOnboarding = MutableStateFlow<Boolean?>(null)
     val startsInOnboarding: StateFlow<Boolean?> = _startsInOnboarding.asStateFlow()
+
+    /** Number of completed/failed jobs the user has not yet seen, for the Lookbook tab badge. */
+    val lookbookBadgeCount: StateFlow<Int> =
+        jobRepository.observeUnseen()
+            .map { jobs -> jobs.size }
+            .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, 0)
 
     init {
         viewModelScope.launch {

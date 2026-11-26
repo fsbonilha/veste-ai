@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -19,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Snackbar
@@ -35,6 +37,8 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.vesteai.R
 import com.vesteai.domain.model.Garment
+import com.vesteai.domain.vton.JobStatus
+import com.vesteai.domain.vton.PendingJob
 import com.vesteai.feature.wardrobe.labelRes
 import com.vesteai.ui.common.EmptyState
 import com.vesteai.ui.common.ErrorState
@@ -53,6 +57,11 @@ internal fun LookbookScreen(
     onConfirmDelete: () -> Unit,
     onCancelDelete: () -> Unit,
     onDismissDeleteError: () -> Unit,
+    onCancelJob: (PendingJob) -> Unit,
+    onRetryJob: (PendingJob) -> Unit,
+    onSaveJobToLookbook: (PendingJob) -> Unit,
+    onDiscardJob: (PendingJob) -> Unit,
+    onReloadJob: (PendingJob) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         when (state) {
@@ -64,6 +73,17 @@ internal fun LookbookScreen(
             )
 
             is LookbookUiState.Content -> {
+                if (state.pendingJobs.isNotEmpty()) {
+                    PendingJobList(
+                        jobs = state.pendingJobs,
+                        imageFile = imageFile,
+                        onCancel = onCancelJob,
+                        onRetry = onRetryJob,
+                        onSave = onSaveJobToLookbook,
+                        onDiscard = onDiscardJob,
+                        onReload = onReloadJob,
+                    )
+                }
                 if (state.looks.isEmpty()) {
                     EmptyState(message = stringResource(R.string.lookbook_empty))
                 } else {
@@ -91,6 +111,102 @@ internal fun LookbookScreen(
                             }
                         },
                     ) { Text(stringResource(R.string.lookbook_delete_failed)) }
+                }
+            }
+        }
+    }
+}
+
+/** Cards for in-progress and recently-completed try-on jobs. */
+@Composable
+private fun PendingJobList(
+    jobs: List<PendingJob>,
+    imageFile: (String) -> File,
+    onCancel: (PendingJob) -> Unit,
+    onRetry: (PendingJob) -> Unit,
+    onSave: (PendingJob) -> Unit,
+    onDiscard: (PendingJob) -> Unit,
+    onReload: (PendingJob) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Text(
+            text = stringResource(R.string.lookbook_pending_section),
+            style = MaterialTheme.typography.titleSmall,
+        )
+        jobs.forEach { job -> PendingJobCard(job, onCancel, onRetry, onSave, onDiscard, onReload) }
+    }
+}
+
+@Composable
+private fun PendingJobCard(
+    job: PendingJob,
+    onCancel: (PendingJob) -> Unit,
+    onRetry: (PendingJob) -> Unit,
+    onSave: (PendingJob) -> Unit,
+    onDiscard: (PendingJob) -> Unit,
+    onReload: (PendingJob) -> Unit,
+) {
+    val isActive = !job.status.isTerminal
+    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = stringResource(
+                    when (job.status) {
+                        JobStatus.Queued -> R.string.tryon_stage_queued
+                        JobStatus.Processing -> R.string.tryon_stage_processing
+                        is JobStatus.Completed -> R.string.tryon_stage_completed
+                        is JobStatus.Failed -> R.string.tryon_stage_failed
+                    },
+                ),
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Text(
+                text = stringResource(R.string.lookbook_job_garments, job.garmentIds.size.toString()),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (isActive) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        onClick = { onCancel(job) },
+                        modifier = Modifier.accessibleTouchTarget(),
+                    ) { Text(stringResource(R.string.action_cancel)) }
+                }
+            } else when (job.status) {
+                is JobStatus.Completed -> {
+                    AsyncImage(
+                        model = imageFile((job.status as JobStatus.Completed).resultImagePath),
+                        contentDescription = stringResource(R.string.tryon_result_description),
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp),
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { onSave(job) },
+                            modifier = Modifier.accessibleTouchTarget(),
+                        ) { Text(stringResource(R.string.action_save_to_lookbook)) }
+                        OutlinedButton(
+                            onClick = { onDiscard(job) },
+                            modifier = Modifier.accessibleTouchTarget(),
+                        ) { Text(stringResource(R.string.action_discard)) }
+                        OutlinedButton(
+                            onClick = { onReload(job) },
+                            modifier = Modifier.accessibleTouchTarget(),
+                        ) {
+                            Text(stringResource(R.string.action_reload_in_fitting_room))
+                        }
+                    }
+                }
+                is JobStatus.Failed -> {
+                    Text(
+                        text = stringResource(R.string.lookbook_job_failed),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    OutlinedButton(
+                        onClick = { onRetry(job) },
+                        modifier = Modifier.accessibleTouchTarget(),
+                    ) { Text(stringResource(R.string.action_retry)) }
                 }
             }
         }
@@ -142,7 +258,6 @@ private fun LookTile(
         Column {
             AsyncImage(
                 model = imageFile(look.outfit.resultImagePath),
-                // One generic string for every card would be unusable; the date distinguishes them.
                 contentDescription = stringResource(R.string.lookbook_saved_on, savedOn),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
@@ -210,8 +325,6 @@ private fun GarmentThumbnailStrip(garments: List<Garment>, imageFile: (String) -
         items(garments, key = { it.id }) { garment ->
             AsyncImage(
                 model = imageFile(garment.imagePath),
-                // Named per garment: one generic string repeated for every thumbnail would tell a
-                // screen reader nothing about what is in the look.
                 contentDescription = garment.displayName
                     ?: stringResource(garment.category.labelRes()),
                 contentScale = ContentScale.Crop,

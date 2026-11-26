@@ -193,4 +193,10 @@
     <string name="garment_camera_title">Photograph the garment</string>
     <string name="garment_camera_preview_description">Live camera preview of the garment</string>
     <string name="garment_camera_shutter">Take photo</string>
+
+    <!-- Async try-on pending jobs in the Lookbook -->
+    <string name="lookbook_pending_section">In progress</string>
+    <string name="lookbook_job_garments">%1$d garment(s)</string>
+    <string name="lookbook_job_failed">Try On failed. Tap Retry to try again.</string>
+    <string name="tryon_stage_failed">Try On failed</string>
 </resources>

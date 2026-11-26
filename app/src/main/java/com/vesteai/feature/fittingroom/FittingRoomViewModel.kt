@@ -11,9 +11,12 @@ import com.vesteai.core.result.DataResult
 import com.vesteai.domain.fitting.FittingRoomSelection
 import com.vesteai.domain.model.Garment
 import com.vesteai.domain.model.GarmentCategory
+import com.vesteai.domain.repository.JobRepository
 import com.vesteai.domain.repository.LookbookRepository
 import com.vesteai.domain.repository.ProfileRepository
 import com.vesteai.domain.repository.WardrobeRepository
+import com.vesteai.domain.vton.JobStatus
+import com.vesteai.domain.vton.PendingJob
 import com.vesteai.domain.vton.VtonEngine
 import com.vesteai.domain.vton.VtonProgress
 import com.vesteai.domain.vton.VtonRequest
@@ -35,6 +38,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -42,6 +46,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.io.IOException
 import java.time.Clock
+import java.util.UUID
 import javax.inject.Inject
 
 /** Try On stages reported by [VtonEngine.render]; `completed` also opens the result sheet. */
@@ -100,6 +105,7 @@ class FittingRoomViewModel @Inject constructor(
     private val wardrobe: WardrobeRepository,
     private val lookbook: LookbookRepository,
     private val profile: ProfileRepository,
+    private val jobRepo: JobRepository,
     private val imageStore: ImageStore,
     private val vtonEngine: VtonEngine,
     private val clock: Clock,
@@ -172,34 +178,63 @@ class FittingRoomViewModel @Inject constructor(
     fun tryOn() {
         val snapshot = _uiState.value
         if (!snapshot.canTryOn || renderJob?.isActive == true) return
-        val startedAtMillis = clock.millis()
+
+        // Build the pending job from image paths (not bytes) so it survives restarts.
+        val garmentIds = snapshot.selection.selected.values.map { it.id }.toList()
+        if (garmentIds.isEmpty()) return
+
+        val jobId = UUID.randomUUID().toString()
+        val pendingJob = PendingJob(
+            id = jobId,
+            providerName = vtonEngine.displayName,
+            providerJobId = null,
+            garmentIds = garmentIds,
+            baselineImagePath = ImageStore.BASELINE_PATH,
+            submittedAt = clock.millis(),
+            status = JobStatus.Queued,
+            seen = false,
+        )
+
         _uiState.update {
             it.copy(tryOnStage = TryOnStage.Queued, elapsedSeconds = 0, queue = VtonProgress())
         }
+
+        // Save the job (the poller picks it up) and show progress locally.
         renderJob = viewModelScope.launch {
-            val timer = launch { tick(startedAtMillis) }
-            // The provider's queue reporting is advisory: it may emit before or during render, and
-            // an engine with no queue support simply never emits.
+            jobRepo.save(pendingJob)
+            // Keep a local progress watcher so the fitting room shows live updates.
+            val timer = launch { tick(pendingJob.submittedAt) }
             val progressWatcher = launch {
                 vtonEngine.progress.collect { progress ->
                     _uiState.update { it.copy(queue = progress) }
                 }
             }
             try {
-                discardStaleResult()
-                val request = buildRequest(snapshot)
-                if (request == null) {
-                    // A cancelled job can also leave no request; only a live job may report a failure.
-                    ensureActive()
-                    fail(AppError.LocalMedia)
-                    return@launch
-                }
-                _uiState.update { it.copy(tryOnStage = TryOnStage.Processing) }
-                val outcome = withTimeoutOrNull(OVERALL_TIMEOUT_MILLIS) { vtonEngine.render(request) }
-                when (outcome) {
-                    null -> fail(AppError.Timeout)
-                    is DataResult.Failure -> fail(outcome.error.toAppError())
-                    is DataResult.Success -> persistResult(outcome.value.image, snapshot)
+                // Watch the job repo for completion of this job.
+                val completed = jobRepo.observeAll()
+                    .first { jobs -> jobs.any { it.id == jobId && it.status.isTerminal } }
+                    ?.firstOrNull { it.id == jobId }
+                // If the job completed while we were watching, show the result.
+                if (completed != null) {
+                    when (completed.status) {
+                        is JobStatus.Completed -> {
+                            val resultPath = (completed.status as JobStatus.Completed).resultImagePath
+                            _uiState.update {
+                                it.copy(
+                                    tryOnStage = TryOnStage.Completed,
+                                    result = TryOnResultUiState(
+                                        relativePath = resultPath,
+                                        garmentIds = garmentIds.toSet(),
+                                    ),
+                                )
+                            }
+                        }
+                        is JobStatus.Failed -> {
+                            val failed = completed.status as JobStatus.Failed
+                            fail(failed.error.toAppError())
+                        }
+                        else -> { /* should not happen */ }
+                    }
                 }
             } finally {
                 timer.cancel()
@@ -211,6 +246,7 @@ class FittingRoomViewModel @Inject constructor(
     fun cancelTryOn() {
         renderJob?.cancel()
         renderJob = null
+        // The job continues running in the background; we just stop watching locally.
         _uiState.update {
             it.copy(tryOnStage = TryOnStage.Idle, elapsedSeconds = 0, queue = VtonProgress())
         }
