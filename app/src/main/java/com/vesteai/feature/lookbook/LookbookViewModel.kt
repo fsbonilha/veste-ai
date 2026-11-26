@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.UUID
 import javax.inject.Inject
 
 /** One grid card: the saved outfit plus its already-formatted creation date. */
@@ -154,12 +155,12 @@ class LookbookViewModel @Inject constructor(
         viewModelScope.launch { jobRepo.delete(job.id) }
     }
 
-    /** Retry a failed job: re-insert with queued status for the poller to pick up. */
+    /** Retry a failed job: delete the old row, create a new pending job for the poller. */
     fun retryJob(job: PendingJob) {
         if (job.status !is JobStatus.Failed) return
         viewModelScope.launch {
             val retry = PendingJob(
-                id = job.id,
+                id = UUID.randomUUID().toString(),
                 providerName = job.providerName,
                 providerJobId = null,
                 garmentIds = job.garmentIds,
@@ -169,6 +170,7 @@ class LookbookViewModel @Inject constructor(
                 seen = false,
             )
             jobRepo.save(retry)
+            jobRepo.delete(job.id)
         }
     }
 
