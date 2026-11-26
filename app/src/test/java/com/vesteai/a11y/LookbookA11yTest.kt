@@ -58,6 +58,11 @@ class LookbookA11yTest {
                 onConfirmDelete = {},
                 onCancelDelete = {},
                 onDismissDeleteError = {},
+                onCancelJob = {},
+                onRetryJob = {},
+                onSaveJobToLookbook = {},
+                onDiscardJob = {},
+                onReloadJob = {},
             )
         }
     }

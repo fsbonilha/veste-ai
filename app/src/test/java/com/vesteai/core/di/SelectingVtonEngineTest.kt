@@ -6,6 +6,9 @@ import com.vesteai.domain.model.GarmentCategory
 import com.vesteai.domain.vton.AspectRequirement
 import com.vesteai.domain.vton.VtonCapabilities
 import com.vesteai.domain.vton.VtonEngine
+import com.vesteai.domain.vton.VtonError
+import com.vesteai.domain.vton.VtonException
+import com.vesteai.domain.vton.VtonPollResult
 import com.vesteai.domain.vton.VtonRequest
 import com.vesteai.domain.vton.VtonResult
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +30,12 @@ class SelectingVtonEngineTest {
             maxParallelJobs = 1,
             requiredAspect = AspectRequirement.Unconstrained,
         )
+
+        override suspend fun submit(request: VtonRequest): DataResult<String> =
+            DataResult.Failure(VtonException(VtonError.UnsupportedCombination))
+
+        override suspend fun poll(jobId: String): DataResult<VtonPollResult?> =
+            DataResult.Failure(VtonException(VtonError.UnsupportedCombination))
 
         override suspend fun render(request: VtonRequest): DataResult<VtonResult> {
             renders++

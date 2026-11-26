@@ -44,6 +44,7 @@ import com.vesteai.ui.common.EmptyState
 import com.vesteai.ui.common.ErrorState
 import com.vesteai.ui.common.LoadingState
 import com.vesteai.ui.common.MinimumTouchTarget
+import com.vesteai.ui.common.accessibleTouchTarget
 import java.io.File
 
 @Composable
@@ -133,13 +134,14 @@ private fun PendingJobList(
             text = stringResource(R.string.lookbook_pending_section),
             style = MaterialTheme.typography.titleSmall,
         )
-        jobs.forEach { job -> PendingJobCard(job, onCancel, onRetry, onSave, onDiscard, onReload) }
+        jobs.forEach { job -> PendingJobCard(job, imageFile, onCancel, onRetry, onSave, onDiscard, onReload) }
     }
 }
 
 @Composable
 private fun PendingJobCard(
     job: PendingJob,
+    imageFile: (String) -> File,
     onCancel: (PendingJob) -> Unit,
     onRetry: (PendingJob) -> Unit,
     onSave: (PendingJob) -> Unit,
@@ -151,17 +153,16 @@ private fun PendingJobCard(
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
                 text = stringResource(
-                    when (job.status) {
-                        JobStatus.Queued -> R.string.tryon_stage_queued
-                        JobStatus.Processing -> R.string.tryon_stage_processing
-                        is JobStatus.Completed -> R.string.tryon_stage_completed
-                        is JobStatus.Failed -> R.string.tryon_stage_failed
-                    },
+                    if (job.status is JobStatus.Queued) R.string.tryon_stage_queued
+                    else if (job.status is JobStatus.Processing) R.string.tryon_stage_processing
+                    else if (job.status is JobStatus.Completed) R.string.tryon_stage_completed
+                    else R.string.tryon_stage_failed
                 ),
                 style = MaterialTheme.typography.labelLarge,
             )
+            val garmentCount = job.garmentIds.size
             Text(
-                text = stringResource(R.string.lookbook_job_garments, job.garmentIds.size.toString()),
+                text = stringResource(R.string.lookbook_job_garments, garmentCount.toString()),
                 style = MaterialTheme.typography.bodySmall,
             )
             if (isActive) {
@@ -172,42 +173,40 @@ private fun PendingJobCard(
                         modifier = Modifier.accessibleTouchTarget(),
                     ) { Text(stringResource(R.string.action_cancel)) }
                 }
-            } else when (job.status) {
-                is JobStatus.Completed -> {
-                    AsyncImage(
-                        model = imageFile((job.status as JobStatus.Completed).resultImagePath),
-                        contentDescription = stringResource(R.string.tryon_result_description),
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp),
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = { onSave(job) },
-                            modifier = Modifier.accessibleTouchTarget(),
-                        ) { Text(stringResource(R.string.action_save_to_lookbook)) }
-                        OutlinedButton(
-                            onClick = { onDiscard(job) },
-                            modifier = Modifier.accessibleTouchTarget(),
-                        ) { Text(stringResource(R.string.action_discard)) }
-                        OutlinedButton(
-                            onClick = { onReload(job) },
-                            modifier = Modifier.accessibleTouchTarget(),
-                        ) {
-                            Text(stringResource(R.string.action_reload_in_fitting_room))
-                        }
+            } else if (job.status is JobStatus.Completed) {
+                val completed = job.status as JobStatus.Completed
+                AsyncImage(
+                    model = imageFile(completed.resultImagePath),
+                    contentDescription = stringResource(R.string.tryon_result_description),
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { onSave(job) },
+                        modifier = Modifier.accessibleTouchTarget(),
+                    ) { Text(stringResource(R.string.action_save_to_lookbook)) }
+                    OutlinedButton(
+                        onClick = { onDiscard(job) },
+                        modifier = Modifier.accessibleTouchTarget(),
+                    ) { Text(stringResource(R.string.action_discard)) }
+                    OutlinedButton(
+                        onClick = { onReload(job) },
+                        modifier = Modifier.accessibleTouchTarget(),
+                    ) {
+                        Text(stringResource(R.string.action_reload_in_fitting_room))
                     }
                 }
-                is JobStatus.Failed -> {
-                    Text(
-                        text = stringResource(R.string.lookbook_job_failed),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                    OutlinedButton(
-                        onClick = { onRetry(job) },
-                        modifier = Modifier.accessibleTouchTarget(),
-                    ) { Text(stringResource(R.string.action_retry)) }
-                }
+            } else if (job.status is JobStatus.Failed) {
+                Text(
+                    text = stringResource(R.string.lookbook_job_failed),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                OutlinedButton(
+                    onClick = { onRetry(job) },
+                    modifier = Modifier.accessibleTouchTarget(),
+                ) { Text(stringResource(R.string.action_retry)) }
             }
         }
     }

@@ -70,6 +70,11 @@ class LookbookScreenTest {
                 onConfirmDelete = onConfirmDelete,
                 onCancelDelete = {},
                 onDismissDeleteError = {},
+                onCancelJob = {},
+                onRetryJob = {},
+                onSaveJobToLookbook = {},
+                onDiscardJob = {},
+                onReloadJob = {},
             )
         }
     }

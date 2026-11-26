@@ -47,7 +47,7 @@ internal class PixelApiVtonEngine(
     )
 
     /** Reads credentials fresh each call so the user can change them between renders. */
-    private fun credentialsOrNull(): Pair<VtonCredentials, HttpUrl>? {
+    private suspend fun credentialsOrNull(): Pair<VtonCredentials, HttpUrl>? {
         val c = credentialProvider.credentials() ?: return null
         val url = c.baseUrl.ifBlank { PixelApiConfig.DEFAULT_BASE_URL }.toHttpUrlOrNull() ?: return null
         return c to url

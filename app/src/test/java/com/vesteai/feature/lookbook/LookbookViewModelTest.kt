@@ -5,7 +5,12 @@ import com.vesteai.core.result.DataResult
 import com.vesteai.domain.model.Garment
 import com.vesteai.domain.model.GarmentCategory
 import com.vesteai.domain.model.Outfit
+import com.vesteai.domain.repository.JobRepository
 import com.vesteai.domain.repository.LookbookRepository
+import com.vesteai.domain.repository.WardrobeRepository
+import com.vesteai.domain.vton.JobStatus
+import com.vesteai.domain.vton.PendingJob
+import com.vesteai.domain.vton.VtonError
 import java.time.ZoneId
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
@@ -59,10 +64,60 @@ class LookbookViewModelTest {
         }
     }
 
+    private class FakeJobRepository : JobRepository {
+        val jobs = MutableStateFlow<List<PendingJob>>(emptyList())
+
+        override fun observeActive(): Flow<List<PendingJob>> = jobs
+
+        override fun observeUnseen(): Flow<List<PendingJob>> = MutableStateFlow(emptyList())
+
+        override fun observeAll(): Flow<List<PendingJob>> = jobs
+
+        override suspend fun save(job: PendingJob): DataResult<PendingJob> =
+            DataResult.Success(job)
+
+        override suspend fun getById(id: String): PendingJob? = null
+
+        override suspend fun updateProviderJobId(id: String, providerJobId: String) = Unit
+
+        override suspend fun transitionToProcessing(id: String) = Unit
+
+        override suspend fun complete(id: String, resultImagePath: String) = Unit
+
+        override suspend fun fail(id: String, error: VtonError, guidance: String?) = Unit
+
+        override suspend fun markSeen(id: String) = Unit
+
+        override suspend fun delete(id: String) = Unit
+    }
+
+    private class FakeWardrobe : WardrobeRepository {
+        override fun observeAll(): Flow<List<Garment>> = MutableStateFlow(emptyList())
+
+        override fun observeByCategory(category: GarmentCategory): Flow<List<Garment>> =
+            MutableStateFlow(emptyList())
+
+        override suspend fun getByIds(ids: Collection<String>): List<Garment> = emptyList()
+
+        override suspend fun add(
+            imagePath: String,
+            category: GarmentCategory,
+            displayName: String?,
+        ): Garment = error("not used")
+
+        override suspend fun setFavorite(id: String, isFavorite: Boolean) = Unit
+
+        override suspend fun countLookbooksContaining(garmentId: String): Int = 0
+
+        override suspend fun deleteGarment(garmentId: String): DataResult<Unit> =
+            DataResult.Success(Unit)
+    }
+
     @get:Rule
     val tmp = TemporaryFolder()
 
     private lateinit var lookbook: FakeLookbook
+    private var jobRepo = FakeJobRepository()
 
     private val top = Garment(
         id = "top",
@@ -97,8 +152,10 @@ class LookbookViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = LookbookViewModel(
+    private fun viewModel(wardrobe: WardrobeRepository = FakeWardrobe()) = LookbookViewModel(
         lookbook = lookbook,
+        jobRepo = jobRepo,
+        wardrobe = wardrobe,
         imageStore = ImageStore(tmp.root),
         dateFormatter = LookbookDateFormatter(Locale.US, ZoneId.of("UTC")),
     )

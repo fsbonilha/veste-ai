@@ -6,14 +6,18 @@ import com.vesteai.core.result.DataResult
 import com.vesteai.domain.model.Garment
 import com.vesteai.domain.model.GarmentCategory
 import com.vesteai.domain.model.Outfit
+import com.vesteai.domain.repository.JobRepository
 import com.vesteai.domain.repository.LookbookRepository
 import com.vesteai.domain.repository.ProfileRepository
 import com.vesteai.domain.repository.WardrobeRepository
+import com.vesteai.domain.vton.JobStatus
+import com.vesteai.domain.vton.PendingJob
 import com.vesteai.domain.vton.AspectRequirement
 import com.vesteai.domain.vton.VtonCapabilities
 import com.vesteai.domain.vton.VtonEngine
 import com.vesteai.domain.vton.VtonError
 import com.vesteai.domain.vton.VtonException
+import com.vesteai.domain.vton.VtonPollResult
 import com.vesteai.domain.vton.VtonProgress
 import com.vesteai.domain.vton.VtonRequest
 import com.vesteai.domain.vton.VtonResult
@@ -115,6 +119,33 @@ class FittingRoomViewModelTest {
         override suspend fun delete(id: String) = Unit
     }
 
+    private class FakeJobRepository : JobRepository {
+        val jobsFlow = MutableStateFlow<List<PendingJob>>(emptyList())
+
+        override fun observeActive(): Flow<List<PendingJob>> = jobsFlow
+
+        override fun observeUnseen(): Flow<List<PendingJob>> = MutableStateFlow(emptyList())
+
+        override fun observeAll(): Flow<List<PendingJob>> = jobsFlow
+
+        override suspend fun save(job: PendingJob): DataResult<PendingJob> =
+            DataResult.Success(job)
+
+        override suspend fun getById(id: String): PendingJob? = null
+
+        override suspend fun updateProviderJobId(id: String, providerJobId: String) = Unit
+
+        override suspend fun transitionToProcessing(id: String) = Unit
+
+        override suspend fun complete(id: String, resultImagePath: String) = Unit
+
+        override suspend fun fail(id: String, error: VtonError, guidance: String?) = Unit
+
+        override suspend fun markSeen(id: String) = Unit
+
+        override suspend fun delete(id: String) = Unit
+    }
+
     private class FakeEngine(
         override val capabilities: VtonCapabilities = CAPABILITIES,
     ) : VtonEngine {
@@ -127,6 +158,12 @@ class FittingRoomViewModelTest {
         var gate: CompletableDeferred<Unit>? = null
         var renderCalls = 0
         var lastRequest: VtonRequest? = null
+
+        override suspend fun submit(request: VtonRequest): DataResult<String> =
+            DataResult.Failure(VtonException(VtonError.UnsupportedCombination))
+
+        override suspend fun poll(jobId: String): DataResult<VtonPollResult?> =
+            DataResult.Failure(VtonException(VtonError.UnsupportedCombination))
 
         override suspend fun render(request: VtonRequest): DataResult<VtonResult> {
             renderCalls++
@@ -170,6 +207,7 @@ class FittingRoomViewModelTest {
     private lateinit var lookbook: FakeLookbook
     private lateinit var engine: FakeEngine
     private lateinit var imageStore: ImageStore
+    private val jobRepo = FakeJobRepository()
 
     private val top = garment("t1", GarmentCategory.TOP)
     private val bottom = garment("b1", GarmentCategory.BOTTOM)
@@ -212,6 +250,7 @@ class FittingRoomViewModelTest {
             wardrobe = wardrobe,
             lookbook = lookbook,
             profile = FakeProfile(baselinePresent),
+            jobRepo = jobRepo,
             imageStore = imageStore,
             vtonEngine = engine,
             clock = SchedulerClock(dispatcher),

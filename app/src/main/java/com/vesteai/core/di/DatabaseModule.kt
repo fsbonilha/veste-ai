@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.vesteai.data.db.GarmentDao
 import com.vesteai.data.db.OutfitDao
+import com.vesteai.data.db.PendingJobDao
 import com.vesteai.data.db.VesteDatabase
 import dagger.Module
 import dagger.Provides
@@ -27,4 +28,7 @@ object DatabaseModule {
 
     @Provides
     fun provideOutfitDao(database: VesteDatabase): OutfitDao = database.outfitDao()
+
+    @Provides
+    fun providePendingJobDao(database: VesteDatabase): PendingJobDao = database.pendingJobDao()
 }

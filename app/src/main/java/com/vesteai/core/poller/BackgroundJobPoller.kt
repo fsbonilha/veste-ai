@@ -13,8 +13,10 @@ import com.vesteai.domain.vton.VtonError
 import com.vesteai.domain.vton.VtonException
 import com.vesteai.domain.vton.VtonPollResult
 import com.vesteai.domain.vton.VtonRequest
+import com.vesteai.domain.vton.isRetryable
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
@@ -94,7 +96,7 @@ class BackgroundJobPoller @Inject constructor(
         var consecutiveFailures = 0
 
         while (true) {
-            ensureActive()
+            currentCoroutineContext().ensureActive()
             delay(pollInterval)
 
             val pollResult = engine.poll(jobId)
@@ -132,7 +134,7 @@ class BackgroundJobPoller @Inject constructor(
         } catch (e: IOException) { return null }
 
         val garmentMeta = wardrobe.getByIds(job.garmentIds)
-        if (garmentMeta.size != job.garmentIds.size()) return null
+        if (garmentMeta.size != job.garmentIds.size) return null
 
         val garments = mutableMapOf<com.vesteai.domain.model.GarmentCategory, ByteArray>()
         for (garment in garmentMeta) {

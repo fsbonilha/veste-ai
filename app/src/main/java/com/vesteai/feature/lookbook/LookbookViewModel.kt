@@ -56,14 +56,10 @@ class LookbookViewModel @Inject constructor(
     private val deleteFailed = MutableStateFlow(false)
 
     private val listing: Flow<LookbookUiState> = attempt.flatMapLatest {
-        combine(
-            lookbook.observeAll(),
-            jobRepo.observeAll(),
-        )
-            .map { (outfits, jobs) ->
+        lookbook.observeAll()
+            .map<List<Outfit>, LookbookUiState> { outfits ->
                 LookbookUiState.Content(
                     looks = outfits.map { LookCard(it, dateFormatter.format(it.createdAt)) },
-                    pendingJobs = jobs,
                 )
             }
             .onStart { emit(LookbookUiState.Loading) }
@@ -71,9 +67,10 @@ class LookbookViewModel @Inject constructor(
     }
 
     val uiState: StateFlow<LookbookUiState> =
-        combine(listing, pendingDeletionId, deleteFailed) { base, pendingId, failed ->
+        combine(listing, pendingDeletionId, deleteFailed, jobRepo.observeAll()) { base, pendingId, failed, jobs ->
             if (base is LookbookUiState.Content) {
                 base.copy(
+                    pendingJobs = jobs,
                     pendingDeletion = base.looks.firstOrNull { it.outfit.id == pendingId },
                     deleteFailed = failed,
                 )
