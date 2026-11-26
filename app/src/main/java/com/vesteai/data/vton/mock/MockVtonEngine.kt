@@ -7,6 +7,7 @@ import com.vesteai.domain.vton.VtonCapabilities
 import com.vesteai.domain.vton.VtonEngine
 import com.vesteai.domain.vton.VtonError
 import com.vesteai.domain.vton.VtonException
+import com.vesteai.domain.vton.VtonPollResult
 import com.vesteai.domain.vton.VtonRequest
 import com.vesteai.domain.vton.VtonResult
 import kotlinx.coroutines.CoroutineDispatcher
@@ -23,6 +24,14 @@ class MockVtonEngine(
 ) : VtonEngine {
 
     override val displayName: String = "Mock (offline)"
+
+    /** Mock engine does not support async submit; only [render] works. */
+    override suspend fun submit(request: VtonRequest): DataResult<String> =
+        DataResult.Failure(VtonException(VtonError.UnsupportedCombination))
+
+    /** Mock engine does not support async poll; only [render] works. */
+    override suspend fun poll(jobId: String): DataResult<VtonPollResult?> =
+        DataResult.Failure(VtonException(VtonError.UnsupportedCombination))
 
     override suspend fun render(request: VtonRequest): DataResult<VtonResult> = withContext(dispatcher) {
         if (!isSupported(request.garments.keys)) return@withContext failure(VtonError.UnsupportedCombination)

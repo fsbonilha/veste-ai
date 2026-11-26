@@ -9,6 +9,8 @@ import com.vesteai.data.vton.mock.MockVtonEngine
 import com.vesteai.data.vton.pixelapi.PixelApiEngineFactory
 import com.vesteai.domain.vton.VtonCapabilities
 import com.vesteai.domain.vton.VtonEngine
+import com.vesteai.domain.vton.VtonPollResult
+import com.vesteai.domain.vton.VtonProgress
 import com.vesteai.domain.vton.VtonRequest
 import com.vesteai.domain.vton.VtonResult
 import dagger.Module
@@ -73,6 +75,12 @@ internal class SelectingVtonEngine(
     override val displayName: String get() = active.displayName
 
     override val capabilities: VtonCapabilities get() = active.capabilities
+
+    override val progress: Flow<VtonProgress> get() = active.progress
+
+    override suspend fun submit(request: VtonRequest): DataResult<String> = active.submit(request)
+
+    override suspend fun poll(jobId: String): DataResult<VtonPollResult?> = active.poll(jobId)
 
     override suspend fun render(request: VtonRequest): DataResult<VtonResult> = active.render(request)
 }

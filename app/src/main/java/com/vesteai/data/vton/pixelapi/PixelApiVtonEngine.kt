@@ -10,6 +10,7 @@ import com.vesteai.domain.vton.VtonCapabilities
 import com.vesteai.domain.vton.VtonEngine
 import com.vesteai.domain.vton.VtonError
 import com.vesteai.domain.vton.VtonException
+import com.vesteai.domain.vton.VtonPollResult
 import com.vesteai.domain.vton.VtonProgress
 import com.vesteai.domain.vton.VtonRequest
 import com.vesteai.domain.vton.VtonResult
@@ -45,11 +46,54 @@ internal class PixelApiVtonEngine(
         requiredAspect = AspectRequirement.Portrait(minWidthPx = 300, minHeightPx = 400),
     )
 
+    /** Reads credentials fresh each call so the user can change them between renders. */
+    private fun credentialsOrNull(): Pair<VtonCredentials, HttpUrl>? {
+        val c = credentialProvider.credentials() ?: return null
+        val url = c.baseUrl.ifBlank { PixelApiConfig.DEFAULT_BASE_URL }.toHttpUrlOrNull() ?: return null
+        return c to url
+    }
+
+    override suspend fun submit(request: VtonRequest): DataResult<String> {
+        val (credentials, baseUrl) = credentialsOrNull() ?: return failure(VtonError.NotConfigured)
+        val submission = PixelApiRequestBuilder.build(request)
+            ?: return failure(VtonError.UnsupportedCombination)
+        return try {
+            val jobId = client.submit(baseUrl, credentials, submission)
+            DataResult.Success(jobId)
+        } catch (e: VtonException) {
+            DataResult.Failure(e)
+        } catch (e: IOException) {
+            failure(PixelApiErrorMapper.fromTransport(e))
+        }
+    }
+
+    /**
+     * Poll one job. Returns null while the job is still queued or processing.
+     * Transient transport and provider errors return null so the caller keeps polling
+     * rather than abandoning a running job; permanent errors propagate as failures.
+     */
+    override suspend fun poll(jobId: String): DataResult<VtonPollResult?> {
+        val (credentials, baseUrl) = credentialsOrNull()
+            ?: return DataResult.Failure(VtonException(VtonError.NotConfigured))
+        return try {
+            val job = client.fetchJob(baseUrl, credentials, jobId)
+            _progress.tryEmit(job.toProgress())
+            val result: VtonPollResult? = when (PixelApiJobStatus.fromWire(job.status)) {
+                PixelApiJobStatus.COMPLETED -> VtonPollResult.Completed(decodeResult(job))
+                PixelApiJobStatus.FAILED -> VtonPollResult.Failed(VtonException(VtonError.JobFailed(job.guidance)))
+                PixelApiJobStatus.QUEUED, PixelApiJobStatus.PROCESSING -> null
+                null -> VtonPollResult.Failed(VtonException(VtonError.JobFailed(job.guidance)))
+            }
+            DataResult.Success(result)
+        } catch (e: VtonException) {
+            if (e.error.isRetryable) DataResult.Success<VtonPollResult?>(null) else DataResult.Failure(e)
+        } catch (e: IOException) {
+            DataResult.Success<VtonPollResult?>(null)
+        }
+    }
+
     override suspend fun render(request: VtonRequest): DataResult<VtonResult> {
-        val credentials = credentialProvider.credentials()
-            ?: return failure(VtonError.NotConfigured)
-        val baseUrl = credentials.baseUrl.ifBlank { PixelApiConfig.DEFAULT_BASE_URL }.toHttpUrlOrNull()
-            ?: return failure(VtonError.NotConfigured)
+        val (credentials, baseUrl) = credentialsOrNull() ?: return failure(VtonError.NotConfigured)
         val submission = PixelApiRequestBuilder.build(request)
             ?: return failure(VtonError.UnsupportedCombination)
 
@@ -69,9 +113,8 @@ internal class PixelApiVtonEngine(
     }
 
     /**
-     * Polling is idempotent (a GET per job id), so a transport failure here is retried rather than
-     * thrown away: a single socket timeout used to lose a job the provider was still rendering. The
-     * retries stay inside [PixelApiConfig.overallTimeout] because this whole loop is bounded by it.
+     * Polling loop used by the synchronous [render] path. Unlike [poll], this retries
+     * transient failures internally before giving up.
      */
     private suspend fun awaitResult(
         baseUrl: HttpUrl,
@@ -84,14 +127,11 @@ internal class PixelApiVtonEngine(
             val job = try {
                 client.fetchJob(baseUrl, credentials, jobId)
             } catch (e: IOException) {
-                // A transport failure carries no HTTP status, so it is always worth another try.
                 if (++consecutiveFailures > config.maxPollRetries) {
                     throw VtonException(PixelApiErrorMapper.fromTransport(e))
                 }
                 continue
             } catch (e: VtonException) {
-                // Provider-side transients (429 rate limit, 503 out of memory) say "come back later",
-                // not "this job failed"; discarding the job here loses a render that was in progress.
                 if (!e.error.isRetryable || ++consecutiveFailures > config.maxPollRetries) throw e
                 continue
             }
