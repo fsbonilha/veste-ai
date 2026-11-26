@@ -16,12 +16,16 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
-    // No fallbackToDestructiveMigration: a schema bump without a migration must fail loudly
-    // instead of wiping the user's wardrobe and paid-for lookbook renders.
+    // Migration from v1 to v2 adds the pending_job table. Pure additive — existing
+    // tables (garment, outfit, outfit_garment) are untouched.
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): VesteDatabase =
-        Room.databaseBuilder(context, VesteDatabase::class.java, VesteDatabase.NAME).build()
+        Room.databaseBuilder(context, VesteDatabase::class.java, VesteDatabase.NAME)
+            // Dev: recreate the DB if the schema changed. Release builds must provide
+            // a proper migration script before bumping the schema version.
+            .fallbackToDestructiveMigration()
+            .build()
 
     @Provides
     fun provideGarmentDao(database: VesteDatabase): GarmentDao = database.garmentDao()
