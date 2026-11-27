@@ -39,7 +39,11 @@ class BackgroundJobPoller @Inject constructor(
     private val imageStore: ImageStore,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
-    private val pollInterval: Duration = 30.seconds
+    /**
+     * How long to wait between polls. Relaxed in production to stay inside the provider's rate
+     * limit; a test sets it to a few milliseconds to drive the loop deterministically.
+     */
+    internal var pollInterval: Duration = 30.seconds
     private val activeJobIds = mutableSetOf<String>()
 
     /** Start watching for new pending jobs. Call once from an app-scoped scope. */
@@ -70,6 +74,14 @@ class BackgroundJobPoller @Inject constructor(
                 return
             }
             pollUntilTerminal(updated)
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (e: Exception) {
+            // A job must never be left non-terminal by an unexpected failure: the row would sit in
+            // the Ongoing list forever, because observeActive() only re-emits when the table
+            // changes and this id has already been cleared from activeJobIds. Record it as failed
+            // so the user sees it and can retry or dismiss it.
+            jobRepo.fail(job.id, VtonError.JobFailed(e.message), null)
         } finally {
             activeJobIds.remove(job.id)
         }
@@ -115,10 +127,8 @@ class BackgroundJobPoller @Inject constructor(
                     when (outcome) {
                         null -> { /* still running */ }
                         is VtonPollResult.Completed -> {
-                            android.util.Log.d("VestePoller", "job=${job.id.take(8)} COMPLETED, persisting image")
                             val path = persistResult(job.id, outcome.image)
                             if (path == null) {
-                                android.util.Log.d("VestePoller", "job=${job.id.take(8)} persist FAILED -> fail row")
                                 jobRepo.fail(job.id, VtonError.JobFailed(null), "Could not save result image")
                                 return
                             }
@@ -126,13 +136,9 @@ class BackgroundJobPoller @Inject constructor(
                             // finds it in the Lookbook without a Save/Discard step. Only if that
                             // write fails do we keep the job row, and then as a Completed job the
                             // Ongoing list can offer a retry.
-                            val saved = lookbook.save(path, job.garmentIds)
-                            android.util.Log.d("VestePoller", "job=${job.id.take(8)} lookbook.save=$saved")
-                            when (saved) {
+                            when (lookbook.save(path, job.garmentIds)) {
                                 is DataResult.Success -> {
-                                    android.util.Log.d("VestePoller", "job=${job.id.take(8)} DELETE row")
                                     jobRepo.delete(job.id)
-                                    android.util.Log.d("VestePoller", "job=${job.id.take(8)} delete returned")
                                 }
                                 is DataResult.Failure -> jobRepo.complete(job.id, path)
                             }

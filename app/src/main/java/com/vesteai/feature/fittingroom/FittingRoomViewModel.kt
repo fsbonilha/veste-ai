@@ -23,6 +23,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -153,7 +154,18 @@ class FittingRoomViewModel @Inject constructor(
                 .collect(::applyLoad)
         }
         viewModelScope.launch {
-            jobRepo.observeAll().collect(::applyJobs)
+            // A single bad emission must not kill the collector: if it did, the Ongoing list would
+            // freeze on its last value and a finished job would appear to stay forever. Re-subscribe
+            // after any failure instead.
+            while (true) {
+                try {
+                    jobRepo.observeAll().collect(::applyJobs)
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    delay(RESUBSCRIBE_DELAY_MILLIS)
+                }
+            }
         }
     }
 
@@ -285,7 +297,6 @@ class FittingRoomViewModel @Inject constructor(
      * lookbook.
      */
     private fun applyJobs(jobs: List<PendingJob>) {
-        android.util.Log.d("VestePoller", "applyJobs: n=${jobs.size} watched=$watchedJobId stage=${_uiState.value.tryOnStage}")
         _uiState.update { it.copy(jobs = jobs) }
         val watchedId = watchedJobId ?: return
         val watched = jobs.firstOrNull { it.id == watchedId }
@@ -422,6 +433,9 @@ class FittingRoomViewModel @Inject constructor(
     }
 
     private companion object {
+        /** Backoff before re-subscribing to the jobs flow after an unexpected failure. */
+        const val RESUBSCRIBE_DELAY_MILLIS = 1_000L
+
         /**
          * A backstop for an engine that ignores cancellation. It must stay at or above the engine's
          * own budget ([PixelApiConfig.overallTimeout], 1200 s), or this shorter guard fires first
