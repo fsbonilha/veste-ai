@@ -58,7 +58,7 @@ class FittingRoomScreenTest {
         baselineFile: File? = baseline,
         onToggleGarment: (Garment) -> Unit = {},
         onTryOn: () -> Unit = {},
-        onCancelTryOn: () -> Unit = {},
+        onSelectTab: (FittingRoomTab) -> Unit = {},
     ) {
         compose.setContent {
             FittingRoomScreen(
@@ -66,9 +66,8 @@ class FittingRoomScreenTest {
                 baselineFile = baselineFile,
                 imageFile = { topImage },
                 onToggleGarment = onToggleGarment,
-                onSelectTab = {},
+                onSelectTab = onSelectTab,
                 onTryOn = onTryOn,
-                onCancelTryOn = onCancelTryOn,
                 onDismissTryOnError = {},
                 onDismissSavedConfirmation = {},
                 onRetry = {},
@@ -83,7 +82,6 @@ class FittingRoomScreenTest {
     private fun loadedState(
         selection: FittingRoomSelection = FittingRoomSelection.Empty,
         tryOnStage: TryOnStage = TryOnStage.Idle,
-        elapsedSeconds: Long = 0,
         tab: FittingRoomTab = FittingRoomTab.TryOn,
         savedConfirmation: Boolean = false,
         jobs: List<com.vesteai.domain.vton.PendingJob> = emptyList(),
@@ -96,7 +94,6 @@ class FittingRoomScreenTest {
         unsupportedCategories = setOf(GarmentCategory.HEADWEAR, GarmentCategory.FOOTWEAR),
         selection = selection,
         tryOnStage = tryOnStage,
-        elapsedSeconds = elapsedSeconds,
         tab = tab,
         savedConfirmation = savedConfirmation,
         jobs = jobs,
@@ -189,38 +186,59 @@ class FittingRoomScreenTest {
     }
 
     @Test
-    fun progressShowsTheStageElapsedTimeAndACancel() {
-        var cancels = 0
+    fun whileProcessingTheTryOnButtonBecomesAWayIntoOngoing() {
+        var opened = 0
         showScreen(
             loadedState(
                 selection = FittingRoomSelection.Empty.toggle(top),
                 tryOnStage = TryOnStage.Processing,
-                elapsedSeconds = 12,
+                jobs = listOf(processingJob()),
             ),
-            onCancelTryOn = { cancels++ },
+            onSelectTab = { if (it == FittingRoomTab.Ongoing) opened++ },
         )
 
-        compose.onNodeWithText(resources.getString(R.string.tryon_stage_processing)).assertIsDisplayed()
-        compose.onNodeWithText(resources.getString(R.string.tryon_elapsed, "12 s"))
+        // No progress bar on the canvas, and no Try On button to press while one runs.
+        compose.onNodeWithText(resources.getString(R.string.tryon_stage_processing))
+            .assertDoesNotExist()
+        compose.onNodeWithText(resources.getString(R.string.action_try_on)).assertDoesNotExist()
+
+        compose.onNodeWithText(resources.getString(R.string.fitting_room_ongoing_count, 1))
             .assertIsDisplayed()
-        compose.onNodeWithText(resources.getString(R.string.action_try_on)).assertIsNotEnabled()
+            .performClick()
 
-        compose.onNodeWithText(resources.getString(R.string.action_cancel)).performClick()
-
-        assertEquals(1, cancels)
+        assertEquals(1, opened)
     }
 
     @Test
-    fun queuedStageIsNamedRatherThanShownAsASpinner() {
+    fun aRunningJobAloneAlsoSwapsTheButtonEvenFromIdle() {
+        // An active job can outlive the render coroutine that started it, so the button must key
+        // off the job count, not just the in-memory stage.
         showScreen(
-            loadedState(
-                selection = FittingRoomSelection.Empty.toggle(top),
-                tryOnStage = TryOnStage.Queued,
-            ),
+            loadedState(jobs = listOf(processingJob())),
         )
 
-        compose.onNodeWithText(resources.getString(R.string.tryon_stage_queued)).assertIsDisplayed()
+        compose.onNodeWithText(resources.getString(R.string.fitting_room_ongoing_count, 1))
+            .assertIsDisplayed()
+        compose.onNodeWithText(resources.getString(R.string.action_try_on)).assertDoesNotExist()
     }
+
+    @Test
+    fun withNoJobsTheTryOnButtonIsBack() {
+        showScreen(loadedState(selection = FittingRoomSelection.Empty.toggle(top)))
+
+        compose.onNodeWithText(resources.getString(R.string.action_try_on)).assertIsDisplayed()
+        compose.onNodeWithText(resources.getString(R.string.fitting_room_ongoing_count, 0))
+            .assertDoesNotExist()
+    }
+
+    private fun processingJob() = com.vesteai.domain.vton.PendingJob(
+        id = "j1",
+        providerName = "PixelAPI",
+        garmentIds = listOf("t1"),
+        baselineImagePath = "baseline/baseline.jpg",
+        submittedAt = 0L,
+        status = com.vesteai.domain.vton.JobStatus.Processing,
+    )
 
     @Test
     fun failedTryOnShowsMappedCopy() {
@@ -252,7 +270,6 @@ class FittingRoomScreenTest {
                 onToggleGarment = {},
                 onSelectTab = { selected = it },
                 onTryOn = {},
-                onCancelTryOn = {},
                 onDismissTryOnError = {},
                 onDismissSavedConfirmation = {},
                 onRetry = {},
@@ -286,7 +303,6 @@ class FittingRoomScreenTest {
                 onToggleGarment = {},
                 onSelectTab = {},
                 onTryOn = {},
-                onCancelTryOn = {},
                 onDismissTryOnError = {},
                 onDismissSavedConfirmation = {},
                 onRetry = {},
@@ -324,7 +340,6 @@ class FittingRoomScreenTest {
                 onToggleGarment = {},
                 onSelectTab = {},
                 onTryOn = {},
-                onCancelTryOn = {},
                 onDismissTryOnError = {},
                 onDismissSavedConfirmation = {},
                 onRetry = {},

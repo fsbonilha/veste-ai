@@ -115,8 +115,10 @@ class BackgroundJobPoller @Inject constructor(
                     when (outcome) {
                         null -> { /* still running */ }
                         is VtonPollResult.Completed -> {
+                            android.util.Log.d("VestePoller", "job=${job.id.take(8)} COMPLETED, persisting image")
                             val path = persistResult(job.id, outcome.image)
                             if (path == null) {
+                                android.util.Log.d("VestePoller", "job=${job.id.take(8)} persist FAILED -> fail row")
                                 jobRepo.fail(job.id, VtonError.JobFailed(null), "Could not save result image")
                                 return
                             }
@@ -124,8 +126,14 @@ class BackgroundJobPoller @Inject constructor(
                             // finds it in the Lookbook without a Save/Discard step. Only if that
                             // write fails do we keep the job row, and then as a Completed job the
                             // Ongoing list can offer a retry.
-                            when (lookbook.save(path, job.garmentIds)) {
-                                is DataResult.Success -> jobRepo.delete(job.id)
+                            val saved = lookbook.save(path, job.garmentIds)
+                            android.util.Log.d("VestePoller", "job=${job.id.take(8)} lookbook.save=$saved")
+                            when (saved) {
+                                is DataResult.Success -> {
+                                    android.util.Log.d("VestePoller", "job=${job.id.take(8)} DELETE row")
+                                    jobRepo.delete(job.id)
+                                    android.util.Log.d("VestePoller", "job=${job.id.take(8)} delete returned")
+                                }
                                 is DataResult.Failure -> jobRepo.complete(job.id, path)
                             }
                             return

@@ -71,7 +71,6 @@ internal fun FittingRoomScreen(
     onToggleGarment: (Garment) -> Unit,
     onSelectTab: (FittingRoomTab) -> Unit,
     onTryOn: () -> Unit,
-    onCancelTryOn: () -> Unit,
     onDismissTryOnError: () -> Unit,
     onDismissSavedConfirmation: () -> Unit,
     onRetry: () -> Unit,
@@ -96,7 +95,6 @@ internal fun FittingRoomScreen(
                             imageFile = imageFile,
                             onToggleGarment = onToggleGarment,
                             onTryOn = onTryOn,
-                            onCancelTryOn = onCancelTryOn,
                             onDismissTryOnError = onDismissTryOnError,
                             onOpenOngoing = { onSelectTab(FittingRoomTab.Ongoing) },
                         )
@@ -151,7 +149,6 @@ private fun TryOnPane(
     imageFile: (String) -> File,
     onToggleGarment: (Garment) -> Unit,
     onTryOn: () -> Unit,
-    onCancelTryOn: () -> Unit,
     onDismissTryOnError: () -> Unit,
     onOpenOngoing: () -> Unit,
 ) {
@@ -166,11 +163,13 @@ private fun TryOnPane(
                 onToggleGarment = onToggleGarment,
                 modifier = Modifier.weight(1f),
             )
-            TryOnProgress(state = state, onCancel = onCancelTryOn, onOpenOngoing = onOpenOngoing)
+            // No progress bar on the canvas: while a job runs the action bar's right button
+            // becomes the way into the Ongoing list, which is where progress is shown.
             ActionBar(
                 state = state,
                 onOpenDrawer = { drawerOpen = true },
                 onTryOn = onTryOn,
+                onOpenOngoing = onOpenOngoing,
             )
         }
 
@@ -369,79 +368,12 @@ private fun SelectionChips(
     }
 }
 
-/** Staged progress for a long-running job: text stages, elapsed timer, Cancel and a link to Ongoing. */
-@Composable
-private fun TryOnProgress(state: FittingRoomUiState, onCancel: () -> Unit, onOpenOngoing: () -> Unit) {
-    val stage = state.tryOnStage
-    if (!stage.isInFlight) return
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(
-            text = stageLabel(stage, state),
-            style = MaterialTheme.typography.titleSmall,
-        )
-        state.queue.userMessage?.takeIf { it.isNotBlank() }?.let { providerCopy ->
-            // The provider knows the queue depth; its copy beats anything invented here (plan §7).
-            Text(text = providerCopy, style = MaterialTheme.typography.bodyMedium)
-        }
-        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = elapsedLabel(state),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                // A job keeps running if the user leaves; the link says so without a second button.
-                TextButton(onClick = onOpenOngoing, modifier = Modifier.accessibleTouchTarget()) {
-                    Text(stringResource(R.string.fitting_room_view_ongoing))
-                }
-                TextButton(onClick = onCancel, modifier = Modifier.accessibleTouchTarget()) {
-                    Text(stringResource(R.string.action_cancel))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun stageLabel(stage: TryOnStage, state: FittingRoomUiState): String = when (stage) {
-    TryOnStage.Queued -> stringResource(R.string.tryon_stage_queued)
-    else -> {
-        val position = state.queue.queuePosition
-        if (position != null && position > 0) {
-            stringResource(R.string.tryon_stage_queue_position, position)
-        } else {
-            stringResource(R.string.tryon_stage_processing)
-        }
-    }
-}
-
-/** Elapsed time plus the provider's ETA when it gives one; the timer is always shown. */
-@Composable
-private fun elapsedLabel(state: FittingRoomUiState): String {
-    val elapsed = stringResource(R.string.tryon_elapsed, "${state.elapsedSeconds} s")
-    val etaSeconds = state.queue.estimatedWaitSeconds
-    return if (etaSeconds == null || etaSeconds <= 0) {
-        elapsed
-    } else {
-        stringResource(R.string.tryon_elapsed_with_eta, elapsed, formatMinutes(etaSeconds))
-    }
-}
-
-/** Coarse on purpose: the provider's estimate is minutes-level, so seconds would imply precision. */
-private fun formatMinutes(seconds: Long): String = "${(seconds + 59) / 60} min"
-
 @Composable
 private fun ActionBar(
     state: FittingRoomUiState,
     onOpenDrawer: () -> Unit,
     onTryOn: () -> Unit,
+    onOpenOngoing: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
@@ -456,12 +388,26 @@ private fun ActionBar(
         ) {
             Text(stringResource(R.string.fitting_room_open_drawer), maxLines = 2)
         }
-        Button(
-            onClick = onTryOn,
-            enabled = state.canTryOn,
-            modifier = Modifier.weight(1f).heightIn(min = MinimumTouchTarget),
-        ) {
-            Text(stringResource(R.string.action_try_on), maxLines = 2)
+        if (state.isProcessing) {
+            // While a job runs there is nothing to start, so the button becomes the way back to
+            // it: "Ongoing (1)", opening the tab that shows real progress and a Cancel.
+            Button(
+                onClick = onOpenOngoing,
+                modifier = Modifier.weight(1f).heightIn(min = MinimumTouchTarget),
+            ) {
+                Text(
+                    text = stringResource(R.string.fitting_room_ongoing_count, state.activeJobCount),
+                    maxLines = 2,
+                )
+            }
+        } else {
+            Button(
+                onClick = onTryOn,
+                enabled = state.canTryOn,
+                modifier = Modifier.weight(1f).heightIn(min = MinimumTouchTarget),
+            ) {
+                Text(stringResource(R.string.action_try_on), maxLines = 2)
+            }
         }
     }
 }

@@ -39,7 +39,6 @@ fun FittingRoomRoute(
         onToggleGarment = viewModel::toggle,
         onSelectTab = viewModel::selectTab,
         onTryOn = viewModel::tryOn,
-        onCancelTryOn = viewModel::cancelTryOn,
         onDismissTryOnError = viewModel::dismissTryOnError,
         onDismissSavedConfirmation = viewModel::dismissSavedConfirmation,
         onRetry = viewModel::retry,

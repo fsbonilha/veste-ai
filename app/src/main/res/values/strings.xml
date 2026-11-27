@@ -100,7 +100,7 @@
     <string name="fitting_room_tab_canvas">Canvas</string>
     <string name="fitting_room_tab_ongoing">Ongoing</string>
     <string name="fitting_room_ongoing_empty">No try-ons in progress.</string>
-    <string name="fitting_room_view_ongoing">Ongoing</string>
+    <string name="fitting_room_ongoing_count">Ongoing · %1$d</string>
     <string name="fitting_room_job_save_failed">Could not save this look. Tap Retry to save it to your lookbook.</string>
 
     <string name="action_try_on">Try On</string>
@@ -111,10 +111,7 @@
 
     <string name="tryon_stage_queued">Queued</string>
     <string name="tryon_stage_processing">Creating your look…</string>
-    <string name="tryon_stage_queue_position">Position %1$d in the queue</string>
     <string name="tryon_stage_completed">Your look is ready</string>
-    <string name="tryon_elapsed">%1$s elapsed</string>
-    <string name="tryon_elapsed_with_eta">%1$s elapsed · about %2$s left</string>
     <string name="tryon_saved">Saved to your lookbook.</string>
     <string name="tryon_result_description">The look generated from your baseline photo</string>
     <string name="tryon_save_failed">Could not save this look. Nothing was added to your lookbook.</string>

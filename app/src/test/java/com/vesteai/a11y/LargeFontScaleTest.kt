@@ -100,7 +100,6 @@ class LargeFontScaleTest {
                     onToggleGarment = {},
                     onSelectTab = {},
                     onTryOn = {},
-                    onCancelTryOn = {},
                     onDismissTryOnError = {},
                     onDismissSavedConfirmation = {},
                     onRetry = {},

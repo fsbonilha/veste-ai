@@ -190,7 +190,6 @@ class RawExceptionLeakTest {
             onToggleGarment = {},
             onSelectTab = {},
             onTryOn = {},
-            onCancelTryOn = {},
             onDismissTryOnError = {},
             onDismissSavedConfirmation = {},
             onRetry = {},

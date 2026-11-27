@@ -58,7 +58,6 @@ class FittingRoomA11yTest {
                 onToggleGarment = onToggleGarment,
                 onSelectTab = {},
                 onTryOn = {},
-                onCancelTryOn = {},
                 onDismissTryOnError = {},
                 onDismissSavedConfirmation = {},
                 onRetry = {},
@@ -184,16 +183,26 @@ class FittingRoomA11yTest {
     }
 
     @Test
-    fun inFlightProgressKeepsCancelNamedAndTouchSized() {
+    fun inFlightWorkSwapsTheTryOnButtonForTheOngoingEntryAndStaysTouchSized() {
         showScreen(
             loadedState(
                 selection = FittingRoomSelection.Empty.toggle(top),
                 tryOnStage = TryOnStage.Processing,
+                jobs = listOf(
+                    com.vesteai.domain.vton.PendingJob(
+                        id = "j1",
+                        providerName = "PixelAPI",
+                        garmentIds = listOf("t1"),
+                        baselineImagePath = "baseline/baseline.jpg",
+                        submittedAt = 0L,
+                        status = com.vesteai.domain.vton.JobStatus.Processing,
+                    ),
+                ),
             ),
         )
 
-        compose.assertPrimaryActionReachable(string(R.string.action_cancel))
-        compose.assertTextDisplayed(string(R.string.tryon_stage_processing))
+        // No progress block on the canvas; the action bar's right button is the way in.
+        compose.assertPrimaryActionReachable(string(R.string.fitting_room_ongoing_count, 1))
         compose.assertControlsAreAccessible()
     }
 

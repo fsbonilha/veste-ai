@@ -334,6 +334,59 @@ class FittingRoomViewModelTest {
     }
 
     @Test
+    fun anAsyncJobClearsFromOngoingWhenThePollerSavesAndDeletesIt() = runTest(dispatcher) {
+        // The engine advertises async submit/poll, so tryOn() takes the background path: it saves
+        // a queued job and leaves the polling to BackgroundJobPoller. This drives the same repo
+        // transitions the poller makes, which is the sequence the device exercises.
+        engine = FakeEngine(capabilities = FakeEngine.CAPABILITIES.copy(isAsync = true))
+        val vm = selectedViewModel()
+
+        vm.tryOn()
+        advanceUntilIdle()
+
+        // A queued job is visible in Ongoing, and the action bar is showing the Ongoing entry.
+        val queued = vm.uiState.value.jobs.single()
+        assertEquals(JobStatus.Queued, queued.status)
+        assertEquals(1, vm.uiState.value.activeJobCount)
+        assertTrue(vm.uiState.value.isProcessing)
+
+        // The poller submits and marks it processing.
+        jobRepo.jobsFlow.value = listOf(queued.copy(status = JobStatus.Processing))
+        advanceUntilIdle()
+        assertEquals(TryOnStage.Processing, vm.uiState.value.tryOnStage)
+
+        // The poller saves the result to the lookbook and deletes the job row.
+        jobRepo.jobsFlow.value = emptyList()
+        advanceUntilIdle()
+
+        // The card is gone, the confirmation is shown, and nothing is left in flight.
+        assertTrue(vm.uiState.value.jobs.isEmpty())
+        assertTrue(vm.uiState.value.ongoingJobs.isEmpty())
+        assertEquals(0, vm.uiState.value.activeJobCount)
+        assertFalse(vm.uiState.value.isProcessing)
+        assertTrue(vm.uiState.value.savedConfirmation)
+    }
+
+    @Test
+    fun anAsyncJobFailureClearsFromOngoingAndShowsTheError() = runTest(dispatcher) {
+        engine = FakeEngine(capabilities = FakeEngine.CAPABILITIES.copy(isAsync = true))
+        val vm = selectedViewModel()
+        vm.tryOn()
+        advanceUntilIdle()
+        val queued = vm.uiState.value.jobs.single()
+
+        // The poller marks the provider job as failed and leaves the row for the Ongoing list.
+        jobRepo.jobsFlow.value = listOf(
+            queued.copy(status = JobStatus.Failed(VtonError.BodyNotDetected, null)),
+        )
+        advanceUntilIdle()
+
+        assertEquals(TryOnStage.Failed(AppError.BodyNotDetected), vm.uiState.value.tryOnStage)
+        // The failed row stays, so the user can retry it.
+        assertEquals(1, vm.uiState.value.ongoingJobs.size)
+    }
+
+    @Test
     fun successfulTryOnReportsQueuedThenProcessingThenCompleted() = runTest(dispatcher) {
         engine.gate = CompletableDeferred()
         val vm = selectedViewModel()
@@ -351,17 +404,6 @@ class FittingRoomViewModelTest {
         // A synchronous render auto-saves, exactly like an async job the poller completes.
         assertNotNull(lookbook.savedPath)
         assertTrue(vm.uiState.value.savedConfirmation)
-    }
-
-    @Test
-    fun elapsedTimerAdvancesWhileTheJobRuns() = runTest(dispatcher) {
-        engine.gate = CompletableDeferred()
-        val vm = selectedViewModel()
-
-        vm.tryOn()
-        advanceTimeBy(3_001)
-
-        assertEquals(3L, vm.uiState.value.elapsedSeconds)
     }
 
     @Test
@@ -393,24 +435,6 @@ class FittingRoomViewModelTest {
     }
 
     @Test
-    fun cancelReturnsToIdleAndStopsTheEngine() = runTest(dispatcher) {
-        engine.gate = CompletableDeferred()
-        val vm = selectedViewModel()
-        vm.tryOn()
-        advanceTimeBy(1)
-
-        vm.cancelTryOn()
-        advanceUntilIdle()
-
-        assertEquals(TryOnStage.Idle, vm.uiState.value.tryOnStage)
-        assertEquals(0L, vm.uiState.value.elapsedSeconds)
-        engine.gate?.complete(Unit)
-        advanceUntilIdle()
-        assertEquals(TryOnStage.Idle, vm.uiState.value.tryOnStage)
-        assertEquals(1, engine.renderCalls)
-    }
-
-    @Test
     fun aHungEngineStillReportedAsInFlightWellPastTheOldThreeMinuteLimit() = runTest(dispatcher) {
         engine.gate = CompletableDeferred()
         val vm = selectedViewModel()
@@ -434,40 +458,6 @@ class FittingRoomViewModelTest {
         advanceUntilIdle()
 
         assertEquals(TryOnStage.Failed(AppError.Timeout), vm.uiState.value.tryOnStage)
-    }
-
-    @Test
-    fun theProvidersQueueMessageReachesTheUiWhileTheJobRuns() = runTest(dispatcher) {
-        engine.gate = CompletableDeferred()
-        val vm = selectedViewModel()
-
-        vm.tryOn()
-        engine.progressFlow.emit(
-            VtonProgress(
-                estimatedWaitSeconds = 340,
-                queuePosition = 2,
-                userMessage = "Preparing your result",
-            ),
-        )
-        advanceUntilIdle()
-
-        val queue = vm.uiState.value.queue
-        assertEquals("Preparing your result", queue.userMessage)
-        assertEquals(340L, queue.estimatedWaitSeconds)
-        assertEquals(2, queue.queuePosition)
-    }
-
-    @Test
-    fun startingOrCancellingAJobClearsAStaleQueueMessage() = runTest(dispatcher) {
-        engine.gate = CompletableDeferred()
-        val vm = selectedViewModel()
-        vm.tryOn()
-        engine.progressFlow.emit(VtonProgress(userMessage = "Preparing your result"))
-        advanceUntilIdle()
-
-        vm.cancelTryOn()
-
-        assertTrue(vm.uiState.value.queue.isEmpty)
     }
 
     @Test
