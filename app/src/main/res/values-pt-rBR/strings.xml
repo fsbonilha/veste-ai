@@ -1,0 +1,200 @@
+<resources>
+    <string name="app_name">Veste AI</string>
+
+    <string name="onboarding_welcome_title_1">Veja as roupas em você antes de vesti-las</string>
+    <string name="onboarding_welcome_body_1">Crie um guarda-roupa digital a partir das roupas que você já tem.</string>
+    <string name="onboarding_welcome_title_2">Experimente combinações em segundos</string>
+    <string name="onboarding_welcome_body_2">Escolha uma parte de cima e de baixo, ou uma peça inteira, e veja como fica na sua foto base.</string>
+    <string name="onboarding_welcome_title_3">Suas fotos ficam neste dispositivo</string>
+    <string name="onboarding_welcome_body_3">Sua foto base e as imagens das peças ficam armazenadas apenas no aplicativo. Nada é enviado nesta etapa.</string>
+    <string name="onboarding_skip">Pular</string>
+    <string name="onboarding_next">Próximo</string>
+    <string name="onboarding_get_started">Começar</string>
+
+    <string name="camera_permission_title">Acesso à câmera</string>
+    <string name="camera_permission_rationale">O Veste AI usa a câmera para tirar uma foto de corpo inteiro como sua base. A foto nunca sai do seu dispositivo.</string>
+    <string name="camera_permission_allow">Permitir câmera</string>
+    <string name="camera_permission_denied_title">O acesso à câmera não foi permitido</string>
+    <string name="camera_permission_denied_body">Você pode tentar novamente ou escolher uma foto da sua galeria.</string>
+    <string name="camera_permission_retry">Tentar novamente</string>
+    <string name="camera_permission_permanent_title">O acesso à câmera está desligado</string>
+    <string name="camera_permission_permanent_body">O Android não mostrará a solicitação novamente. Ative a câmera nas configurações para continuar.</string>
+    <string name="camera_permission_open_settings">Abrir configurações</string>
+    <string name="camera_permission_pick_instead">Escolher uma foto</string>
+
+    <string name="baseline_title">Sua foto base</string>
+    <string name="baseline_instructions">Posicione-se a cerca de dois metros da câmera em uma pose neutra, com o corpo inteiro da cabeça aos pés dentro do contorno.</string>
+    <string name="baseline_camera_unavailable">Nenhuma câmera disponível foi encontrada neste dispositivo.</string>
+    <string name="baseline_capture">Tirar foto</string>
+    <string name="baseline_pick">Escolher da galeria</string>
+    <string name="baseline_saving">Salvando sua foto base…</string>
+    <string name="baseline_error_capture_failed">Não foi possível tirar a foto. Tente novamente.</string>
+    <string name="baseline_error_too_small">Essa foto é muito pequena. Escolha uma imagem maior ou tire uma nova.</string>
+    <string name="baseline_error_unreadable">Não foi possível ler essa imagem. Escolha outra foto.</string>
+    <string name="baseline_error_storage_failed">Sua foto foi salva, mas a configuração não pôde ser concluída. Tente novamente.</string>
+    <string name="baseline_camera_not_allowed">O acesso à câmera está desligado. Você pode escolher uma foto da sua galeria.</string>
+    <string name="baseline_retry">Tentar novamente</string>
+    <string name="baseline_frame_description">Guia de enquadramento: contorno de corpo inteiro</string>
+
+    <string name="category_top">Parte de cima</string>
+    <string name="category_bottom">Parte de baixo</string>
+    <string name="category_full_body">Corpo inteiro</string>
+    <string name="category_footwear">Calçados</string>
+    <string name="category_headwear">Chapéus e acessórios</string>
+
+    <string name="filter_all">Todas</string>
+    <string name="wardrobe_empty">Seu guarda-roupa está vazio. Adicione sua primeira peça para começar a montar lookinhos.</string>
+    <string name="wardrobe_empty_filtered">Nenhuma peça nesta categoria ainda.</string>
+    <string name="wardrobe_load_failed">Não foi possível carregar seu guarda-roupa.</string>
+    <string name="garment_delete_failed">Não foi possível excluir esta peça. Nada foi removido.</string>
+    <string name="import_too_small">Esta foto é muito pequena. Use uma imagem de pelo menos 300×400 px.</string>
+    <string name="import_unreadable">Não foi possível ler esta imagem. Tente outra foto.</string>
+    <string name="garment_save_failed">Não foi possível salvar esta peça. Tente novamente.</string>
+
+    <string name="delete_garment_title">Excluir esta peça?</string>
+    <string name="delete_garment_body">Esta peça será removida do seu guarda-roupa.</string>
+    <string name="delete_garment_cascade_title">Excluir peça e lookinhos?</string>
+    <plurals name="deleting_garment_cascades_lookbooks">
+        <item quantity="one">Ao excluir esta peça, também será excluído %d lookinho que a contém. Esse lookinho desaparecerá para sempre e não poderá ser recuperado. Deseja realmente continuar?</item>
+        <item quantity="other">Ao excluir esta peça, também serão excluídos %d lookinhos que a contêm. Esses lookinhos desaparecerão para sempre e não poderão ser recuperados. Deseja realmente continuar?</item>
+    </plurals>
+
+    <string name="lookbook_empty">Nenhum lookinho salvo ainda. Faça uma prova no Provador e o resultado aparecerá aqui.</string>
+    <string name="lookbook_load_failed">Não foi possível carregar seus Lookinhos.</string>
+    <string name="lookbook_delete_failed">Não foi possível excluir este lookinho. Nada foi removido.</string>
+    <string name="lookbook_saved_on">Salvo em %1$s</string>
+    <string name="lookbook_result_description">Lookinho salvo</string>
+    <string name="lookbook_thumbnail_description">Peça neste lookinho</string>
+    <string name="lookbook_viewer_close">Fechar</string>
+    <string name="delete_lookbook_title">Excluir este lookinho?</string>
+    <string name="delete_lookbook_body">Este lookinho será removido dos seus Lookinhos e sua imagem será excluída. Ele desaparecerá para sempre e não poderá ser recuperado.</string>
+    <string name="action_reload_in_fitting_room">Recarregar no provador</string>
+
+    <string name="crop_hint_body">Para melhores resultados, fotografe a peça estendida sobre um fundo claro e liso com boa iluminação. Mantenha a peça inteira no enquadramento e corte o entorno.</string>
+    <string name="tagging_prompt">Que tipo de peça é esta?</string>
+    <string name="draft_image_description">Foto da peça</string>
+
+    <string name="action_add_from_gallery">Adicionar da galeria</string>
+    <string name="action_add_from_camera">Tirar foto</string>
+    <string name="action_favorite">Favoritar</string>
+    <string name="action_unfavorite">Desfavoritar</string>
+    <string name="action_delete">Excluir</string>
+    <string name="action_cancel">Cancelar</string>
+    <string name="action_retry">Tentar novamente</string>
+    <string name="action_dismiss">Dispensar</string>
+    <string name="action_continue">Continuar</string>
+    <string name="action_save">Salvar</string>
+    <string name="action_back">Voltar</string>
+    <string name="tab_fitting_room">Provador</string>
+    <string name="tab_wardrobe">Guarda-roupa</string>
+    <string name="tab_lookbook">Lookinhos</string>
+    <string name="tab_settings">Configurações</string>
+
+    <string name="fitting_room_baseline_description">Sua foto base</string>
+    <string name="fitting_room_no_baseline">Nenhuma foto base ainda. Adicione uma na introdução antes de provar qualquer peça.</string>
+    <string name="fitting_room_no_garments">Seu guarda-roupa está vazio. Adicione peças na aba Guarda-roupa para prová-las.</string>
+    <string name="fitting_room_load_failed">Não foi possível carregar o provador.</string>
+    <string name="fitting_room_open_drawer">Escolher peças</string>
+    <string name="fitting_room_drawer_empty">Nenhuma peça nesta categoria ainda. Adicione-as na aba Guarda-roupa.</string>
+    <string name="fitting_room_unsupported_category">Este serviço de foto ainda não suporta %1$s.</string>
+    <string name="fitting_room_tab_canvas">Tela</string>
+    <string name="fitting_room_tab_ongoing">Em andamento</string>
+    <string name="fitting_room_ongoing_empty">Nenhuma prova em andamento.</string>
+    <string name="fitting_room_ongoing_count">Em andamento · %1$d</string>
+    <string name="fitting_room_job_save_failed">Não foi possível salvar este lookinho. Toque em Tentar novamente para salvá-lo nos seus Lookinhos.</string>
+
+    <string name="action_try_on">Provar</string>
+    <string name="action_remove_selection">Remover %1$s da seleção</string>
+    <string name="action_share">Compartilhar</string>
+    <string name="action_discard">Descartar</string>
+    <string name="action_done">Pronto</string>
+
+    <string name="tryon_stage_queued">Na fila</string>
+    <string name="tryon_stage_processing">Criando seu lookinho…</string>
+    <string name="tryon_stage_completed">Seu lookinho está pronto</string>
+    <string name="tryon_saved">Salvo nos seus Lookinhos.</string>
+    <string name="tryon_result_description">O lookinho gerado a partir da sua foto base</string>
+    <string name="tryon_save_failed">Não foi possível salvar este lookinho. Nada foi adicionado aos seus Lookinhos.</string>
+
+    <string name="share_look_chooser_title">Compartilhar seu lookinho</string>
+    <string name="share_look_subject">Meu lookinho do Veste AI</string>
+
+    <string name="error_vton_not_configured">A prova ainda não foi configurada. Adicione um serviço de foto nas Configurações.</string>
+    <string name="error_vton_authentication">Seu serviço de foto rejeitou a chave salva. Atualize-a nas Configurações.</string>
+    <string name="error_vton_unsupported">Esta combinação não é suportada pelo serviço de foto.</string>
+    <string name="error_vton_no_network">Sem conexão de rede. Verifique sua conexão e tente novamente.</string>
+    <string name="error_vton_timeout">A prova demorou muito e foi interrompida. Tente novamente.</string>
+    <string name="error_vton_too_many_jobs">Muitas provas estão sendo executadas ao mesmo tempo. Aguarde uma terminar e tente novamente.</string>
+    <string name="error_vton_busy">O serviço de foto está ocupado. Tente novamente em instantes.</string>
+    <string name="error_vton_input_too_small">Sua foto base é muito pequena para o serviço de foto. Tire uma nova nas Configurações.</string>
+    <string name="error_vton_wrong_aspect">Sua foto base não está na orientação retrato. Tire uma nova nas Configurações.</string>
+    <string name="error_vton_body_not_detected">Nenhum corpo foi detectado na sua foto base. Tire uma nova nas Configurações.</string>
+    <string name="error_vton_invalid_image">Essa imagem não pôde ser usada. Tire uma nova foto base nas Configurações.</string>
+    <string name="error_vton_job_failed">A prova falhou. Tente novamente.</string>
+    <string name="error_vton_server">O serviço de foto apresentou um problema. Tente novamente mais tarde.</string>
+    <string name="error_local_media">Essa imagem não pôde ser lida ou salva neste dispositivo.</string>
+    <string name="error_unknown">Algo deu errado. Tente novamente.</string>
+
+    <string name="settings_title">Configurações</string>
+    <string name="settings_engine_label">Mecanismo</string>
+    <string name="settings_engine_mock_hint">Nenhuma chave salva, portanto nenhuma prova remota pode ser executada e nenhuma foto sai deste dispositivo.</string>
+    <string name="settings_engine_remote_hint">Uma chave está salva. Ao executar uma prova remota, suas fotos saem deste dispositivo e vão para seu provedor.</string>
+
+    <string name="settings_baseline_title">Foto base</string>
+    <string name="settings_baseline_body">Substitua a foto de corpo inteiro na qual cada prova é renderizada.</string>
+    <string name="settings_baseline_retake">Tirar nova foto base</string>
+
+    <string name="settings_key_title">Chave da API</string>
+    <string name="settings_key_body">Use sua própria chave. As provas são cobradas na sua conta, não na nossa.</string>
+    <string name="settings_key_stored">Chave salva: %1$s</string>
+    <string name="settings_key_absent">Nenhuma chave salva ainda.</string>
+    <string name="settings_key_field_label">Chave da API</string>
+    <string name="settings_key_save">Salvar chave</string>
+    <string name="settings_key_remove">Remover chave</string>
+    <string name="settings_key_saving">Salvando chave…</string>
+    <string name="settings_key_error_blank">Insira sua chave de API primeiro.</string>
+    <string name="settings_key_error_prefix">Isso não parece uma chave de API. Ela deve começar com pk_live_.</string>
+    <string name="settings_key_error_save">A chave não pôde ser salva. Tente novamente.</string>
+    <string name="settings_key_error_storage">O armazenamento de chaves criptografadas não está disponível, portanto a chave não foi salva.</string>
+    <string name="settings_key_error_reentry">Sua chave salva não pôde ser lida e foi limpa. Insira-a novamente.</string>
+    <string name="settings_key_format_hint">Verificado apenas neste dispositivo: nenhuma requisição é enviada ao salvar.</string>
+
+    <string name="settings_base_url_title">URL base da API</string>
+    <string name="settings_base_url_field_label">URL base</string>
+    <string name="settings_base_url_hint">Salva junto com a chave.</string>
+
+    <string name="settings_privacy_title">Privacidade</string>
+    <string name="settings_privacy_own_key">A chave de API é sua. As requisições são cobradas na conta do seu próprio provedor.</string>
+    <string name="settings_privacy_photos_leave">Ao executar uma prova remota, sua foto base e as fotos das peças selecionadas saem deste dispositivo e são enviadas ao seu provedor.</string>
+    <string name="settings_privacy_local">Seu guarda-roupa, Lookinhos e fotos são armazenados neste dispositivo. Nada é enviado até que você execute uma prova remota.</string>
+    <string name="settings_privacy_key_storage">A chave é criptografada com uma chave mantida no Android Keystore. Ela nunca é gravada no banco de dados, nas preferências ou nos registros.</string>
+
+    <string name="settings_clear_data_title">Limpar dados</string>
+    <string name="settings_clear_data_body">Exclui seu guarda-roupa, Lookinhos, foto base e chave de API deste dispositivo. Isso não pode ser desfeito.</string>
+    <string name="settings_clear_data_action">Limpar todos os dados</string>
+    <string name="settings_clear_data_confirm_title">Limpar todos os dados?</string>
+    <string name="settings_clear_data_confirm_body">Seu guarda-roupa, Lookinhos, foto base e chave de API serão excluídos deste dispositivo. Isso não pode ser desfeito.</string>
+    <string name="settings_clear_data_confirm">Excluir tudo</string>
+    <string name="settings_clear_data_clearing">Limpando…</string>
+    <string name="settings_clear_data_done">Todos os dados foram limpos.</string>
+    <string name="settings_clear_data_failed">Alguns dados não puderam ser limpos. Tente novamente.</string>
+
+    <string name="state_loading">Carregando</string>
+    <string name="onboarding_page_indicator">Página %1$d de %2$d</string>
+    <string name="baseline_preview_description">Pré-visualização da câmera. Alinhe seu corpo com o guia de enquadramento.</string>
+    <string name="settings_load_failed">Não foi possível carregar suas configurações.</string>
+    <string name="action_favorite_named">Marcar %1$s como favorito</string>
+    <string name="action_unfavorite_named">Remover %1$s dos favoritos</string>
+    <string name="action_delete_named">Excluir %1$s</string>
+    <string name="action_favorite_look_named">Marcar o lookinho salvo em %1$s como favorito</string>
+    <string name="action_unfavorite_look_named">Remover o lookinho salvo em %1$s dos favoritos</string>
+    <string name="action_delete_look_named">Excluir o lookinho salvo em %1$s</string>
+    <string name="action_reload_look_named">Recarregar no provador o lookinho salvo em %1$s</string>
+    <string name="garment_camera_title">Fotografar a peça</string>
+    <string name="garment_camera_preview_description">Pré-visualização ao vivo da câmera para a peça</string>
+    <string name="garment_camera_shutter">Tirar foto</string>
+
+    <string name="fitting_room_job_garments">%1$d peça(s)</string>
+    <string name="fitting_room_job_failed">A prova falhou. Toque em Tentar novamente.</string>
+    <string name="tryon_stage_failed">Prova falhou</string>
+</resources>
